@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
 const swaggerJsdoc = require('swagger-jsdoc');
 const config = require('./index');
 
@@ -148,9 +149,30 @@ const definition = {
   security: [{ bearerAuth: [] }],
 };
 
+// Resolve the per-route documentation files explicitly. We read the directory
+// and pass absolute, FORWARD-SLASH paths — swagger-jsdoc globs each entry, and
+// glob treats backslashes as escape characters, so a Windows-style path from
+// path.join() ("...\\src\\docs\\*.docs.js") silently matches nothing and the
+// UI renders tags with no operations. Forward slashes work on Windows and POSIX.
+const toPosix = (p) => p.replace(/\\/g, '/');
+const docsDir = path.join(__dirname, '..', 'docs');
+let docApis;
+try {
+  docApis = fs
+    .readdirSync(docsDir)
+    .filter((f) => f.endsWith('.docs.js'))
+    .map((f) => toPosix(path.join(docsDir, f)));
+} catch (err) {
+  docApis = [];
+}
+// Fallback to a forward-slash glob if the directory read yielded nothing.
+if (!docApis.length) {
+  docApis = [toPosix(path.join(docsDir, '*.docs.js'))];
+}
+
 const options = {
   definition,
-  apis: [path.join(__dirname, '..', 'docs', '*.docs.js')],
+  apis: docApis,
 };
 
 const swaggerSpec = swaggerJsdoc(options);

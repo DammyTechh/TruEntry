@@ -24,18 +24,24 @@ const config = {
   env: process.env.NODE_ENV || 'development',
   isProd: (process.env.NODE_ENV || 'development') === 'production',
   isTest: process.env.NODE_ENV === 'test',
+  // True on Vercel / AWS Lambda style hosts (read-only fs, ephemeral, no listen()).
+  isServerless: !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION),
   port: toInt(process.env.PORT, 5000),
   apiPrefix: process.env.API_PREFIX || '/api/v1',
   appName: process.env.APP_NAME || 'TruEntry',
 
   urls: {
-    frontend: process.env.FRONTEND_URL || 'https://truentry.vercel.app',
+    // Frontend app (custom domains truentry.org / www.truentry.org).
+    frontend: process.env.FRONTEND_URL || 'https://truentry-frontend.vercel.app',
     admin: process.env.ADMIN_URL || 'https://www.truentry.org/admin',
-    backend: process.env.BACKEND_URL || 'http://localhost:5000',
+    // This backend deployment.
+    backend: process.env.BACKEND_URL || 'https://truentry.vercel.app',
   },
 
   corsOrigins: toList(process.env.CORS_ORIGINS, [
-    'https://truentry.vercel.app',
+    // Frontend origins allowed to call this API.
+    'https://truentry-frontend.vercel.app',
+    'https://truentry.org',
     'https://www.truentry.org',
     'http://localhost:3000',
     'http://localhost:5173',
@@ -83,7 +89,7 @@ const config = {
     applicationFeeNgn: toInt(process.env.APPLICATION_FEE_NGN, 2500),
     callbackUrl:
       process.env.PAYSTACK_CALLBACK_URL ||
-      'https://truentry.vercel.app/payment/callback',
+      'https://truentry-frontend.vercel.app/payment/callback',
   },
 
   dojah: {
@@ -136,11 +142,14 @@ function validate() {
   }
 
   if (missing.length) {
+    const msg = `[config] Missing required environment variables: ${missing.join(', ')}`;
     // eslint-disable-next-line no-console
-    console.error(
-      `\n[config] Missing required environment variables: ${missing.join(', ')}\n`
-    );
-    if (config.isProd) process.exit(1);
+    console.error(`\n${msg}\n`);
+    // On serverless we must not process.exit (it crashes the invocation opaquely);
+    // throw instead so the platform surfaces a clear error. On a normal server in
+    // production we exit so the process manager can restart with correct config.
+    if (config.isProd && !config.isServerless) process.exit(1);
+    if (config.isServerless && missing.includes('DATABASE_URL')) throw new Error(msg);
   }
 }
 

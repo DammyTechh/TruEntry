@@ -25,8 +25,11 @@ const transports = [
   }),
 ];
 
-// File rotation only outside of test to keep test runs clean.
-if (!config.isTest) {
+// File rotation only when we have a writable filesystem (i.e. not on Vercel/
+// Lambda serverless, where only /tmp is writable) and not during tests.
+// On serverless we log to the console only — the platform captures stdout.
+const canWriteFiles = !config.isTest && !config.isServerless;
+if (canWriteFiles) {
   transports.push(
     new winston.transports.DailyRotateFile({
       dirname: path.join(process.cwd(), 'logs'),

@@ -11,9 +11,14 @@ const logger = require('./logger');
 const pool = new Pool({
   connectionString: config.db.url,
   ssl: config.db.ssl ? { rejectUnauthorized: false } : false,
-  max: 20,
-  idleTimeoutMillis: 30000,
+  // Serverless invocations are short-lived and many may run concurrently, so a
+  // large pool per instance exhausts the database's connection limit fast. Keep
+  // it tiny on serverless (use a pooled/Supavisor connection string too) and
+  // generous on a long-running server.
+  max: config.isServerless ? 3 : 20,
+  idleTimeoutMillis: config.isServerless ? 10000 : 30000,
   connectionTimeoutMillis: 10000,
+  allowExitOnIdle: config.isServerless,
 });
 
 pool.on('error', (err) => {
