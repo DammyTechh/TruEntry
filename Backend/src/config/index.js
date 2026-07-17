@@ -35,7 +35,7 @@ const config = {
     frontend: process.env.FRONTEND_URL || 'https://truentry-frontend.vercel.app',
     admin: process.env.ADMIN_URL || 'https://www.truentry.org/admin',
     // This backend deployment.
-    backend: process.env.BACKEND_URL || 'https://truentry.vercel.app',
+    backend: process.env.BACKEND_URL || 'https://tru-entry.vercel.app',
   },
 
   corsOrigins: toList(process.env.CORS_ORIGINS, [

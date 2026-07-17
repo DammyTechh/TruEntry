@@ -7,7 +7,6 @@ const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const hpp = require('hpp');
 const morgan = require('morgan');
-const swaggerUi = require('swagger-ui-express');
 
 const config = require('./config');
 const logger = require('./config/logger');
@@ -73,15 +72,50 @@ app.use(hpp());
 app.use(globalLimiter);
 
 /* ------------------------------ API docs ------------------------------- */
+// Raw OpenAPI spec (Swagger UI fetches this).
 app.get(`${config.apiPrefix}/docs.json`, (req, res) => res.json(swaggerSpec));
-app.use(
-  `${config.apiPrefix}/docs`,
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec, {
-    customSiteTitle: 'TruEntry API Docs',
-    swaggerOptions: { persistAuthorization: true },
-  })
-);
+
+// Swagger UI shell. We load the UI assets from a CDN and point them at
+// /docs.json instead of using swagger-ui-express's on-disk swagger-ui-dist
+// files. On serverless (Vercel) those dist files are not traced into the
+// function bundle, so they were being returned as text/html and the browser
+// refused them ("SwaggerUIBundle is not defined"). Serving the shell ourselves
+// removes any local static files to bundle, so it works identically on local
+// and on Vercel. helmet's CSP is disabled above, so the CDN scripts load fine.
+const SWAGGER_UI_VERSION = '5.17.14';
+const docsHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TruEntry API Docs</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui.css" />
+  <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/favicon-32x32.png" sizes="32x32" />
+  <style>body { margin: 0; background: #fafafa; }</style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-bundle.js" crossorigin></script>
+  <script src="https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-standalone-preset.js" crossorigin></script>
+  <script>
+    window.onload = function () {
+      window.ui = SwaggerUIBundle({
+        url: '${config.apiPrefix}/docs.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        persistAuthorization: true,
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: 'StandaloneLayout',
+      });
+    };
+  </script>
+</body>
+</html>`;
+
+// Serve on both /docs and /docs/ so either URL renders (no redirect needed).
+app.get([`${config.apiPrefix}/docs`, `${config.apiPrefix}/docs/`], (req, res) => {
+  res.type('html').send(docsHtml);
+});
 
 /* ------------------------------- Routes -------------------------------- */
 app.get('/', (req, res) =>
