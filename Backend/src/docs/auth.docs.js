@@ -38,10 +38,10 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, code]
+ *             required: [email, otp]
  *             properties:
  *               email: { type: string, format: email }
- *               code: { type: string, example: "123456" }
+ *               otp: { type: string, example: "123456", description: "6-digit verification code" }
  *     responses:
  *       200: { description: Email verified, content: { application/json: { schema: { $ref: '#/components/schemas/ApiSuccess' } } } }
  *
@@ -142,10 +142,10 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, code, password]
+ *             required: [email, otp, password]
  *             properties:
  *               email: { type: string, format: email }
- *               code: { type: string }
+ *               otp: { type: string, description: "6-digit reset code" }
  *               password: { type: string, minLength: 8 }
  *     responses:
  *       200: { description: Password reset }
