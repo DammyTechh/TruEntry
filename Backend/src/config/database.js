@@ -25,6 +25,19 @@ pool.on('error', (err) => {
   logger.error('Unexpected Postgres pool error', { error: err.message, stack: err.stack });
 });
 
+// Guard-rail: the DIRECT Supabase host (db.<ref>.supabase.co) is IPv6-only and is
+// not reachable from most serverless platforms (e.g. Vercel), which surfaces as
+// "getaddrinfo ENOTFOUND db.<ref>.supabase.co" on the first query. On serverless
+// you must use the POOLED Supavisor string (host contains "pooler", port 6543).
+// We only warn (never crash) so a misconfigured deploy fails with a clear hint.
+if (config.isServerless && /db\.[a-z0-9]+\.supabase\.co/i.test(config.db.url || '')) {
+  logger.warn(
+    'DATABASE_URL points at the DIRECT Supabase host while running on a serverless ' +
+      'platform. This typically fails with ENOTFOUND. Use the pooled connection ' +
+      'string instead (host contains "pooler", port 6543). See DEPLOY_VERCEL.md.'
+  );
+}
+
 /**
  * Run a parameterised query.
  * @param {string} text - SQL with $1, $2 placeholders.
