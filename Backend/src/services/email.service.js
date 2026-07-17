@@ -57,15 +57,28 @@ async function send({ to, subject, html, replyTo }) {
     return { skipped: true };
   }
   try {
-    const result = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM,
       to,
       subject,
       html,
       replyTo: replyTo || config.mail.supportEmail,
     });
-    logger.info('Email sent', { to, subject, id: result?.data?.id });
-    return result;
+    // Resend does NOT throw on an API-level rejection (e.g. unverified sending
+    // domain, or a recipient not allowed while your account is in test mode).
+    // It returns { data: null, error: {...} }. We must check `error` explicitly
+    // — otherwise a rejected email gets logged as "sent" and silently vanishes.
+    if (error) {
+      logger.error('Email rejected by Resend (NOT delivered)', {
+        to,
+        subject,
+        from: FROM,
+        reason: error.message || error.name || String(error),
+      });
+      return { error: error.message || 'Email provider rejected the message' };
+    }
+    logger.info('Email sent', { to, subject, id: data?.id });
+    return { data };
   } catch (err) {
     logger.error('Email send failed', { to, subject, error: err.message });
     return { error: err.message };
