@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout, { AuthLink } from './AuthLayout';
-import { Input } from '../../components/ui/Field';
+import { Input, PasswordInput } from '../../components/ui/Field';
 import { Button } from '../../components/ui/Primitives';
 import { useToast } from '../../components/ui/Toast';
 import api, { errMessage, fieldErrors } from '../../lib/api';
@@ -55,8 +55,8 @@ export default function Register() {
         <Input label="Full name" required value={form.fullName} onChange={set('fullName')} error={errors.fullName} autoComplete="name" />
         <Input label="Email" type="email" required value={form.email} onChange={set('email')} error={errors.email} autoComplete="email" />
         <Input label="Phone" value={form.phone} onChange={set('phone')} error={errors.phone} autoComplete="tel" placeholder="080…" />
-        <Input label="Password" type="password" required value={form.password} onChange={set('password')} error={errors.password} hint="8+ chars, with upper, lower and a number" autoComplete="new-password" />
-        <Input label="Confirm password" type="password" required value={form.confirm} onChange={set('confirm')} error={errors.confirm} autoComplete="new-password" />
+        <PasswordInput label="Password" required value={form.password} onChange={set('password')} error={errors.password} hint="8+ chars, with upper, lower and a number" autoComplete="new-password" />
+        <PasswordInput label="Confirm password" required value={form.confirm} onChange={set('confirm')} error={errors.confirm} autoComplete="new-password" />
         <Button type="submit" loading={loading} className="w-full">
           Create account
         </Button>

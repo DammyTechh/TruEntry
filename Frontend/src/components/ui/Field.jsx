@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+
 export function Field({ label, error, hint, required, children }) {
   return (
     <div>
@@ -38,6 +41,31 @@ export function Textarea({ label, error, hint, required, className = '', ...prop
   return (
     <Field label={label} error={error} hint={hint} required={required}>
       <textarea className={`input min-h-[96px] ${error ? 'border-danger' : ''} ${className}`} {...props} />
+    </Field>
+  );
+}
+
+// Password field with a show/hide toggle.
+export function PasswordInput({ label, error, hint, required, className = '', ...props }) {
+  const [show, setShow] = useState(false);
+  return (
+    <Field label={label} error={error} hint={hint} required={required}>
+      <div className="relative">
+        <input
+          type={show ? 'text' : 'password'}
+          className={`input pr-11 ${error ? 'border-danger focus:ring-danger/25' : ''} ${className}`}
+          {...props}
+        />
+        <button
+          type="button"
+          onClick={() => setShow((s) => !s)}
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-muted transition hover:bg-primary-surface hover:text-ink"
+          aria-label={show ? 'Hide password' : 'Show password'}
+          tabIndex={-1}
+        >
+          {show ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+        </button>
+      </div>
     </Field>
   );
 }

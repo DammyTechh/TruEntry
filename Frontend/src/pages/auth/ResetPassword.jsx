@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AuthLayout, { AuthLink } from './AuthLayout';
-import { Input } from '../../components/ui/Field';
+import { Input, PasswordInput } from '../../components/ui/Field';
 import { Button } from '../../components/ui/Primitives';
 import { useToast } from '../../components/ui/Toast';
 import api, { errMessage } from '../../lib/api';
@@ -41,8 +41,8 @@ export default function ResetPassword() {
       <form onSubmit={submit} className="space-y-4">
         <Input label="Email" type="email" required value={form.email} onChange={set('email')} />
         <Input label="Reset code" value={form.otp} onChange={(e) => setForm({ ...form, otp: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="123456" required />
-        <Input label="New password" type="password" required value={form.password} onChange={set('password')} error={errors.password} />
-        <Input label="Confirm password" type="password" required value={form.confirm} onChange={set('confirm')} error={errors.confirm} />
+        <PasswordInput label="New password" required value={form.password} onChange={set('password')} error={errors.password} />
+        <PasswordInput label="Confirm password" required value={form.confirm} onChange={set('confirm')} error={errors.confirm} />
         <Button type="submit" loading={loading} className="w-full">Reset password</Button>
       </form>
     </AuthLayout>

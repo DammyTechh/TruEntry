@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AuthLayout, { AuthLink } from './AuthLayout';
-import { Input } from '../../components/ui/Field';
+import { Input, PasswordInput } from '../../components/ui/Field';
 import { Button } from '../../components/ui/Primitives';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
@@ -44,7 +44,7 @@ export default function Login() {
       <form onSubmit={submit} className="space-y-4">
         <Input label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
         <div>
-          <Input label="Password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          <PasswordInput label="Password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
           <div className="mt-1.5 text-right">
             <AuthLink to="/forgot-password">Forgot password?</AuthLink>
           </div>

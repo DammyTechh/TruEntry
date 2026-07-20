@@ -96,7 +96,7 @@ export default function Landing() {
               </div>
 
               {/* floating chips */}
-              <div className="absolute -left-6 top-10 hidden animate-float rounded-2xl border border-border bg-white p-3 shadow-float sm:block">
+              <div className="absolute -left-5 -top-6 z-10 hidden animate-float rounded-2xl border border-border bg-white p-3 shadow-float lg:block">
                 <div className="flex items-center gap-2">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-success"><BadgeCheck className="h-5 w-5" /></div>
                   <div>
@@ -105,7 +105,7 @@ export default function Landing() {
                   </div>
                 </div>
               </div>
-              <div className="absolute -right-4 bottom-8 hidden animate-float rounded-2xl border border-border bg-white p-3 shadow-float [animation-delay:1.5s] sm:block">
+              <div className="absolute -right-5 -bottom-6 z-10 hidden animate-float rounded-2xl border border-border bg-white p-3 shadow-float [animation-delay:1.5s] lg:block">
                 <div className="flex items-center gap-2">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-light text-primary"><Lock className="h-5 w-5" /></div>
                   <div>
