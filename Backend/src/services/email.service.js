@@ -222,7 +222,7 @@ async function sendWelcome(to, name) {
     `<p style="margin:0 0 14px;">Hi ${name || 'there'},</p>
      <p style="margin:0 0 6px;">Your account is verified. You can now complete your profile, verify your
         NIN, JAMB and O-Level records, and apply to your institution of choice.</p>
-     ${button(config.urls.frontend + '/app', 'Go to your dashboard')}
+     ${button(config.urls.frontend + '/login', 'Go to your dashboard')}
      <p style="color:${BRAND.muted};font-size:13px;margin:6px 0 0;">We're glad to have you on board.</p>`,
     { preheader: 'Your TruEntry account is ready.' }
   );
@@ -238,7 +238,7 @@ async function sendApplicationStatus(to, name, { institution, department, status
         <strong>${institution}</strong> has changed to:</p>
      ${statusPill(pretty, toneForStatus(status))}
      ${note ? `<p style="background:${BRAND.bg};border:1px solid ${BRAND.border};border-radius:12px;padding:14px 16px;color:${BRAND.text};margin:14px 0;">${note}</p>` : ''}
-     ${button(config.urls.frontend + '/app/applications', 'View your application')}`,
+     ${button(config.urls.frontend + '/login', 'View your application')}`,
     { preheader: `Your application is now: ${pretty}` }
   );
   return send({ to, subject: `TruEntry: Application ${pretty}`, html });
