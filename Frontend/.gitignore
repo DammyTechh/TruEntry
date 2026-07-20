@@ -1,21 +1,13 @@
-# Dependencies
+# dependencies
 node_modules/
-# Environment
+# build output
+dist/
+# env (do NOT commit secrets)
 .env
 .env.local
 .env.*.local
-# Logs
-logs/
-*.log
+# logs / os
 npm-debug.log*
-# OS / editor
+yarn-error.log*
 .DS_Store
-Thumbs.db
-.idea/
-.vscode/
-# Build / temp
-dist/
-coverage/
-tmp/
-uploads/tmp/
-*.pdf.tmp
+*.log

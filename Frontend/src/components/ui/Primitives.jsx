@@ -1,90 +1,80 @@
 import { Link } from 'react-router-dom';
+import { Loader2, Inbox } from 'lucide-react';
 
 export function Spinner({ className = 'h-4 w-4' }) {
-  return (
-    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-    </svg>
-  );
+  return <Loader2 className={`animate-spin ${className}`} aria-hidden="true" />;
 }
 
 const VARIANTS = {
-  primary: 'bg-primary text-white hover:bg-primary-hover shadow-sm',
-  secondary: 'bg-white text-ink border border-border hover:bg-primary-surface',
+  primary:
+    'bg-primary text-white shadow-[0_6px_16px_-6px_rgba(11,77,224,0.5)] hover:bg-primary-hover hover:shadow-[0_10px_22px_-8px_rgba(11,77,224,0.55)] hover:-translate-y-0.5 active:translate-y-0',
+  gradient:
+    'bg-brand-gradient text-white shadow-float hover:-translate-y-0.5 active:translate-y-0 sheen',
+  secondary: 'bg-white text-ink border border-border hover:border-primary/40 hover:bg-primary-surface',
   ghost: 'text-primary hover:bg-primary-light',
-  danger: 'bg-danger text-white hover:bg-red-700',
-  subtle: 'bg-primary-light text-primary hover:bg-primary-light/70',
+  danger: 'bg-danger text-white hover:bg-red-700 shadow-[0_6px_16px_-6px_rgba(220,38,38,0.5)]',
+  subtle: 'bg-primary-light text-primary hover:bg-primary-100',
+  dark: 'bg-ink text-white hover:bg-primary-950',
 };
-const SIZES = { sm: 'px-3 py-1.5 text-sm', md: 'px-4 py-2.5 text-sm', lg: 'px-5 py-3 text-base' };
+const SIZES = { sm: 'px-3.5 py-2 text-sm', md: 'px-5 py-2.5 text-sm', lg: 'px-6 py-3.5 text-base' };
 
 export function Button({
-  as = 'button',
-  to,
-  href,
-  variant = 'primary',
-  size = 'md',
-  loading = false,
-  disabled = false,
-  className = '',
-  children,
-  ...props
+  as = 'button', to, href, variant = 'primary', size = 'md',
+  loading = false, disabled = false, className = '', children, ...props
 }) {
-  const cls = `inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition
-    disabled:opacity-50 disabled:cursor-not-allowed ${VARIANTS[variant]} ${SIZES[size]} ${className}`;
-  const content = (
-    <>
-      {loading && <Spinner />}
-      {children}
-    </>
-  );
+  const cls = `group inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200
+    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${VARIANTS[variant]} ${SIZES[size]} ${className}`;
+  const content = (<>{loading && <Spinner />}{children}</>);
   if (to) return <Link to={to} className={cls} {...props}>{content}</Link>;
   if (href) return <a href={href} className={cls} {...props}>{content}</a>;
   const Comp = as;
-  return (
-    <Comp className={cls} disabled={disabled || loading} {...props}>
-      {content}
-    </Comp>
-  );
+  return <Comp className={cls} disabled={disabled || loading} {...props}>{content}</Comp>;
 }
 
 export function Badge({ children, className = '' }) {
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${className}`}>
-      {children}
-    </span>
-  );
+  return <span className={`chip ${className}`}>{children}</span>;
 }
 
-export function Card({ className = '', children, ...props }) {
+export function Card({ className = '', hover = false, children, ...props }) {
   return (
-    <div className={`card p-5 ${className}`} {...props}>
+    <div className={`card p-5 ${hover ? 'card-hover' : ''} ${className}`} {...props}>
       {children}
     </div>
   );
 }
 
-export function StatCard({ label, value, hint, accent = 'text-primary' }) {
+export function StatCard({ label, value, hint, icon: Icon, accent = 'text-primary', tone = 'primary' }) {
+  const tones = {
+    primary: 'bg-primary-light text-primary',
+    success: 'bg-green-50 text-success',
+    warning: 'bg-amber-50 text-warning',
+    danger: 'bg-red-50 text-danger',
+  };
   return (
-    <div className="card p-5">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</div>
-      <div className={`mt-2 text-3xl font-bold ${accent}`}>{value}</div>
+    <div className="card card-hover p-5">
+      <div className="flex items-start justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</div>
+        {Icon && (
+          <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${tones[tone]}`}>
+            <Icon className="h-4.5 w-4.5" strokeWidth={2} />
+          </div>
+        )}
+      </div>
+      <div className={`mt-3 text-3xl font-bold tracking-tight ${accent}`}>{value}</div>
       {hint && <div className="mt-1 text-xs text-muted">{hint}</div>}
     </div>
   );
 }
 
-export function EmptyState({ title, message, action }) {
+export function EmptyState({ title, message, action, icon: Icon = Inbox }) {
   return (
-    <div className="card flex flex-col items-center justify-center py-12 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-primary">
-        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M4 7h16M4 12h10M4 17h6" strokeLinecap="round" />
-        </svg>
+    <div className="card flex flex-col items-center justify-center py-14 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-light text-primary shadow-xs">
+        <Icon className="h-7 w-7" strokeWidth={1.75} />
       </div>
       <h3 className="text-base font-semibold text-ink">{title}</h3>
-      {message && <p className="mt-1 max-w-sm text-sm text-muted">{message}</p>}
-      {action && <div className="mt-4">{action}</div>}
+      {message && <p className="mt-1.5 max-w-sm text-sm text-muted">{message}</p>}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   );
 }

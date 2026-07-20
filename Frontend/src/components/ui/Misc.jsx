@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Badge, Spinner, Button } from './Primitives';
 import { statusMeta, PAYMENT_STATUS_META } from '../../lib/constants';
 
@@ -28,22 +29,17 @@ export function Modal({ open, onClose, title, children, footer }) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
-
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-primary-dark/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="animate-scale-in relative w-full max-w-lg rounded-2xl bg-white shadow-pop">
+      <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className="animate-scale-in relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-pop">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h3 className="text-base font-semibold text-ink">{title}</h3>
-          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close">
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
-            </svg>
-          </button>
+          <h3 className="font-display text-base font-semibold text-ink">{title}</h3>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-muted transition hover:bg-primary-surface hover:text-ink" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
         <div className="px-5 py-4">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-border px-5 py-4">{footer}</div>}
+        {footer && <div className="flex justify-end gap-2 border-t border-border bg-primary-surface/50 px-5 py-4">{footer}</div>}
       </div>
     </div>
   );
@@ -52,17 +48,11 @@ export function Modal({ open, onClose, title, children, footer }) {
 export function Pagination({ page, totalPages, onPage }) {
   if (!totalPages || totalPages <= 1) return null;
   return (
-    <div className="mt-4 flex items-center justify-between text-sm text-muted">
-      <span>
-        Page {page} of {totalPages}
-      </span>
+    <div className="mt-5 flex items-center justify-between text-sm text-muted">
+      <span>Page <span className="font-semibold text-ink">{page}</span> of {totalPages}</span>
       <div className="flex gap-2">
-        <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-          Previous
-        </Button>
-        <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>
-          Next
-        </Button>
+        <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}><ChevronLeft className="h-4 w-4" /> Prev</Button>
+        <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>Next <ChevronRight className="h-4 w-4" /></Button>
       </div>
     </div>
   );
