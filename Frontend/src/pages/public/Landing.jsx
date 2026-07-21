@@ -22,7 +22,7 @@ const STEPS = [
 
 const FEATURES = [
   { icon: ShieldCheck, t: 'Verified at the source', d: 'NIN, JAMB and WAEC/NECO/NABTEB records checked against the issuing systems — not self-reported.' },
-  { icon: TrendingUp, t: 'Quota-aware decisioning', d: 'Rank candidates on JAMB, Post-UTME and aggregate scores, then select against department quota automatically.' },
+  { icon: TrendingUp, t: 'Quota-aware decision making', d: 'Rank candidates on JAMB, Post-UTME and aggregate scores, then select against department quota automatically.' },
   { icon: Lock, t: 'Secure & auditable', d: 'Role-based access and a complete audit trail on every action, from application to admission.' },
   { icon: Clock, t: 'Real-time status', d: 'Applicants see exactly where they stand at every stage — no more waiting in the dark.' },
 ];
@@ -49,7 +49,7 @@ export default function Landing() {
               Admissions <br className="hidden sm:block" />you can <span className="bg-brand-gradient bg-clip-text text-transparent">trust</span>.
             </h1>
             <p className="mt-5 max-w-lg text-lg leading-relaxed text-muted">
-              TruEntry digitises, secures and automates tertiary admissions in Nigeria — from application all the way to JAMB admission.
+              TruEntry Digitalizes, secures and automates tertiary admissions in Nigeria — from application all the way to JAMB admission.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button to="/register" variant="gradient" size="lg">Apply now <ArrowRight className="h-5 w-5" /></Button>

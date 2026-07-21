@@ -116,7 +116,7 @@ export function Footer() {
           <div className="lg:col-span-2">
             <Logo light />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/65">
-              TruEntry digitises and secures tertiary admissions across Nigeria — from application through NIN, JAMB and O-Level verification to final admission.
+              TruEntry Digitalizes and secures tertiary admissions across Nigeria — from application through NIN, JAMB and O-Level verification to final admission.
             </p>
             <div className="mt-5 flex gap-2.5">
               {SOCIALS.map(({ Icon, href, label }) => (

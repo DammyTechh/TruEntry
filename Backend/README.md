@@ -1,6 +1,6 @@
 # TruEntry — Backend API
 
-**TruEntry** is a Tertiary Education Admissions Quality Assurance Platform for Nigeria. It digitises, secures and automates the admissions pipeline end to end: applicant onboarding with identity/qualification verification (NIN, JAMB, WAEC/NECO/NABTEB), institution decisioning, registrar approval, JAMB regulatory audit and final admission, payments, and audit-ready reporting.
+**TruEntry** is a Tertiary Education Admissions Quality Assurance Platform for Nigeria. It Digitalizes, secures and automates the admissions pipeline end to end: applicant onboarding with identity/qualification verification (NIN, JAMB, WAEC/NECO/NABTEB), institution decisioning, registrar approval, JAMB regulatory audit and final admission, payments, and audit-ready reporting.
 
 This repository is the **backend**: a Node.js + Express REST API (JavaScript, CommonJS) backed by PostgreSQL, documented with Swagger/OpenAPI.
 
@@ -37,7 +37,7 @@ src/
     institutions/        institutions, categories, departments, parameters, assets
     policies/            admission policy statements (editor HTML or PDF)
     applications/        full application lifecycle (applicant + officer + registrar)
-    decisioning/         quota-aware ranking and selection
+    decision/            quota-aware ranking and selection
     payments/            Paystack initialize / verify / webhook
     admission-letters/   admission letter PDF generation
     reports/             audit-ready report PDF generation

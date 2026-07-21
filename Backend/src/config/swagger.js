@@ -17,7 +17,7 @@ const definition = {
     version: '1.0.0',
     description:
       'TruEntry — Tertiary Education Admissions Quality Assurance Platform. ' +
-      'Digitises, secures and automates the Nigerian tertiary admissions pipeline: ' +
+      'Digitalizes, secures and automates the Nigerian tertiary admissions pipeline: ' +
       'applicant onboarding (NIN/JAMB/O-Level verification), institution decisioning, ' +
       'registrar approval, JAMB regulatory audit, payments and reporting.',
     contact: { name: 'TruEntry Support', email: config.mail.supportEmail },
@@ -33,7 +33,7 @@ const definition = {
     { name: 'Institutions', description: 'Institutions, categories, departments, parameters' },
     { name: 'Policies', description: 'Admission policy statements' },
     { name: 'Applications', description: 'Application lifecycle for applicants and institution staff' },
-    { name: 'Decisioning', description: 'Quota-aware ranking and selection' },
+    { name: 'Decision', description: 'Quota-aware ranking and selection' },
     { name: 'Payments', description: 'Paystack application-fee payments' },
     { name: 'Admission Letters', description: 'Admission letter generation and download' },
     { name: 'Reports', description: 'Audit-ready admission reports' },
