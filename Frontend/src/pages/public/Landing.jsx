@@ -22,7 +22,7 @@ const STEPS = [
 
 const FEATURES = [
   { icon: ShieldCheck, t: 'Verified at the source', d: 'NIN, JAMB and WAEC/NECO/NABTEB records checked against the issuing systems — not self-reported.' },
-  { icon: TrendingUp, t: 'Quota-aware decision making', d: 'Rank candidates on JAMB, Post-UTME and aggregate scores, then select against department quota automatically.' },
+  { icon: TrendingUp, t: 'Quota-aware decision making', d: 'Rank candidates on JAMB, Post-UTME and aggregate scores in-line with departmental quota automatically.' },
   { icon: Lock, t: 'Secure & auditable', d: 'Role-based access and a complete audit trail on every action, from application to admission.' },
   { icon: Clock, t: 'Real-time status', d: 'Applicants see exactly where they stand at every stage — no more waiting in the dark.' },
 ];
