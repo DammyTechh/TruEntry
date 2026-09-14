@@ -29,6 +29,42 @@
 
   .chip { @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold; }
 
+
+  .onboarding-surface {
+    position: relative;
+    isolation: isolate;
+    background-color: #F6F8FE;
+    background-image:
+      radial-gradient(75% 62% at -8% 65%, rgba(214, 235, 255, .72) 0%, rgba(214, 235, 255, 0) 62%),
+      radial-gradient(72% 70% at 110% 34%, rgba(220, 238, 255, .72) 0%, rgba(220, 238, 255, 0) 64%),
+      linear-gradient(145deg, rgba(255,255,255,.9) 0%, rgba(246,248,254,.6) 46%, rgba(231,242,255,.62) 100%);
+  }
+  .onboarding-surface::before,
+  .onboarding-surface::after {
+    content: '';
+    position: fixed;
+    z-index: -1;
+    pointer-events: none;
+    border: 1px solid rgba(205, 230, 255, .55);
+    background: rgba(255,255,255,.22);
+    filter: blur(.1px);
+    transform: rotate(12deg);
+  }
+  .onboarding-surface::before {
+    width: 72vw;
+    height: 42vw;
+    left: -24vw;
+    bottom: -14vw;
+    border-radius: 48% 52% 44% 56%;
+  }
+  .onboarding-surface::after {
+    width: 58vw;
+    height: 64vw;
+    right: -28vw;
+    top: 10vh;
+    border-radius: 52% 48% 58% 42%;
+  }
+
   /* subtle top sheen used on dark panels */
   .sheen { position: relative; overflow: hidden; }
   .sheen::after {

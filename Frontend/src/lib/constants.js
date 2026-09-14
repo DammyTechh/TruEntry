@@ -8,7 +8,7 @@ export const ROLES = {
 
 // Where each role lands after login.
 export const ROLE_HOME = {
-  applicant: '/app',
+  applicant: '/onboarding',
   officer: '/institution',
   registrar: '/institution',
   jamb: '/jamb',

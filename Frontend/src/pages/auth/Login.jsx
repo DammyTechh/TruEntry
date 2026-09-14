@@ -5,7 +5,7 @@ import { Input, PasswordInput } from '../../components/ui/Field';
 import { Button } from '../../components/ui/Primitives';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
-import { ROLE_HOME } from '../../lib/constants';
+import { ROLE_HOME, ROLES } from '../../lib/constants';
 import { errMessage } from '../../lib/api';
 
 export default function Login() {
@@ -23,8 +23,12 @@ export default function Login() {
     try {
       const user = await login(email.trim(), password);
       toast.success(`Welcome back, ${user.fullName.split(' ')[0]}.`);
-      const dest = location.state?.from?.pathname || ROLE_HOME[user.role] || '/';
-      nav(dest, { replace: true });
+      if (user.role === ROLES.APPLICANT) {
+        nav('/onboarding', { replace: true, state: { from: location.state?.from } });
+      } else {
+        const dest = location.state?.from?.pathname || ROLE_HOME[user.role] || '/';
+        nav(dest, { replace: true });
+      }
     } catch (err) {
       const msg = errMessage(err);
       toast.error(msg);

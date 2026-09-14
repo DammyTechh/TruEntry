@@ -8,11 +8,11 @@ export default function Payments() {
   const { items, page, setPage, totalPages, loading } = usePaged('/payments/mine');
   return (
     <div>
-      <PageHeader title="Payments" subtitle="Your application fee payments." />
+      <PageHeader title="Payments" subtitle="Your TruEntry payments." />
       {loading ? (
         <PageLoader />
       ) : items.length === 0 ? (
-        <EmptyState title="No payments yet" message="Payments appear here after you apply." />
+        <EmptyState title="No payments yet" message="Payments appear here after you make a payment." />
       ) : (
         <>
           <div className="card overflow-hidden">

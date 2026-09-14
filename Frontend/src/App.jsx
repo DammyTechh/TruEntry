@@ -1,9 +1,11 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Outlet } from 'react-router-dom';
 import { ProtectedRoute, GuestRoute } from './components/ProtectedRoute';
 import { ROLES } from './lib/constants';
 
 import PublicLayout from './components/layout/PublicLayout';
 import DashboardShell from './components/layout/DashboardShell';
+import { OnboardingProvider } from './context/OnboardingContext';
+import { ApplicantDashboardGate, OnboardingEntry, OnboardingStepGate } from './components/onboarding/OnboardingGuards';
 
 // Public
 import Landing from './pages/public/Landing';
@@ -19,6 +21,11 @@ import VerifyEmail from './pages/auth/VerifyEmail';
 import Login from './pages/auth/Login';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+
+// Onboarding
+import BiodataStep from './pages/onboarding/Biodata';
+import ExamDetailsStep from './pages/onboarding/ExamDetails';
+import PaymentSummaryStep from './pages/onboarding/PaymentSummary';
 
 // Applicant
 import AppDashboard from './pages/applicant/Dashboard';
@@ -54,6 +61,28 @@ import AdminMock from './pages/admin/Mock';
 
 const staff = [ROLES.OFFICER, ROLES.REGISTRAR];
 
+function ApplicantOnboardingBoundary() {
+  return (
+    <ProtectedRoute allow={[ROLES.APPLICANT]}>
+      <OnboardingProvider>
+        <Outlet />
+      </OnboardingProvider>
+    </ProtectedRoute>
+  );
+}
+
+function ApplicantAppShell() {
+  return (
+    <ProtectedRoute allow={[ROLES.APPLICANT]}>
+      <OnboardingProvider>
+        <ApplicantDashboardGate>
+          <DashboardShell />
+        </ApplicantDashboardGate>
+      </OnboardingProvider>
+    </ProtectedRoute>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
@@ -83,15 +112,37 @@ export default function App() {
       <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
       <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
 
-      {/* Applicant */}
-      <Route
-        path="/app"
-        element={
-          <ProtectedRoute allow={[ROLES.APPLICANT]}>
-            <DashboardShell />
-          </ProtectedRoute>
-        }
-      >
+      {/* Applicant onboarding */}
+      <Route path="/onboarding" element={<ApplicantOnboardingBoundary />}>
+        <Route index element={<OnboardingEntry />} />
+        <Route
+          path="biodata"
+          element={
+            <OnboardingStepGate step={1}>
+              <BiodataStep />
+            </OnboardingStepGate>
+          }
+        />
+        <Route
+          path="exam-details"
+          element={
+            <OnboardingStepGate step={2}>
+              <ExamDetailsStep />
+            </OnboardingStepGate>
+          }
+        />
+        <Route
+          path="payment"
+          element={
+            <OnboardingStepGate step={3}>
+              <PaymentSummaryStep />
+            </OnboardingStepGate>
+          }
+        />
+      </Route>
+
+      {/* Applicant portal: inaccessible until all 3 onboarding steps are complete. */}
+      <Route path="/app" element={<ApplicantAppShell />}>
         <Route index element={<AppDashboard />} />
         <Route path="profile" element={<Profile />} />
         <Route path="apply" element={<Apply />} />
