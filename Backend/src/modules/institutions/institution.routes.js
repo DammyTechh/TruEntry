@@ -19,11 +19,11 @@ router.delete('/categories/:id', authenticate, authorize(ROLES.ADMIN), c.deleteC
 
 /* ------------- Institution-scoped self routes (officer/registrar) ------ */
 // "me" resolves to the caller's own institution.
-router.get('/me/parameters', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR), c.getParameters);
-router.put('/me/parameters', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR), validate({ body: v.parametersSchema }), c.updateParameters);
-router.post('/me/departments', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR), validate({ body: v.departmentSchema }), c.createDepartment);
-router.put('/me/update', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR), validate({ body: v.updateInstitutionSchema }), c.updateInstitution);
-router.post('/me/assets/:kind', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR), uploadAsset.single('file'), c.uploadAsset);
+router.get('/me/parameters', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION), c.getParameters);
+router.put('/me/parameters', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION), validate({ body: v.parametersSchema }), c.updateParameters);
+router.post('/me/departments', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION), validate({ body: v.departmentSchema }), c.createDepartment);
+router.put('/me/update', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION), validate({ body: v.updateInstitutionSchema }), c.updateInstitution);
+router.post('/me/assets/:kind', authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION), uploadAsset.single('file'), c.uploadAsset);
 
 /* ---------------------------- Public list ------------------------------ */
 router.get('/', optionalAuth, validate({ query: v.listQuerySchema }), c.listInstitutions);
@@ -41,7 +41,7 @@ router.put('/:institutionId/parameters', authenticate, authorize(ROLES.ADMIN), v
 
 router.post('/:institutionId/departments', authenticate, authorize(ROLES.ADMIN), validate({ body: v.departmentSchema }), c.createDepartment);
 router.get('/departments/:id', optionalAuth, c.getDepartment);
-router.put('/departments/:id', authenticate, authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR), validate({ body: v.updateDepartmentSchema }), c.updateDepartment);
-router.delete('/departments/:id', authenticate, authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR), c.deleteDepartment);
+router.put('/departments/:id', authenticate, authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION), validate({ body: v.updateDepartmentSchema }), c.updateDepartment);
+router.delete('/departments/:id', authenticate, authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION), c.deleteDepartment);
 
 module.exports = router;

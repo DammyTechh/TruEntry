@@ -317,6 +317,35 @@ async function sendCredentials(to, name, { email, password, role }) {
   return send({ to, subject: 'Your TruEntry account credentials', html });
 }
 
+async function sendInstitutionCredentials(to, { institutionName, email: loginEmail, password, reissued = false }) {
+  const title = reissued ? 'Your new TruEntry password' : 'Your TruEntry institution account';
+  const lead = reissued
+    ? `A new temporary password has been issued for <strong>${institutionName}</strong>. Your previous password no longer works.`
+    : `An account has been created for <strong>${institutionName}</strong> on TruEntry. Use the credentials below to sign in and manage your admissions.`;
+
+  const html = layout(
+    title,
+    `<p style="margin:0 0 6px;">${lead}</p>
+     ${infoTable([
+       ['Institution', institutionName],
+       ['Sign-in email', loginEmail],
+       ['Temporary password', password],
+     ])}
+     <div style="background:${BRAND.primaryLight};border:1px solid ${BRAND.border};border-radius:12px;padding:14px 16px;margin:18px 0;">
+       <strong style="color:${BRAND.primaryDark};">You must change this password on first sign-in.</strong>
+       <div style="color:${BRAND.muted};font-size:13px;margin-top:4px;">
+         For your security, this temporary password only works for setting a new one.
+       </div>
+     </div>
+     ${button(config.urls.frontend + '/login', 'Sign in to TruEntry')}
+     <p style="color:${BRAND.muted};font-size:13px;margin:6px 0 0;">
+       If you did not expect this email, please contact ${config.mail.supportEmail}.
+     </p>`,
+    { preheader: `Sign-in details for ${institutionName}` }
+  );
+  return send({ to, subject: title, html });
+}
+
 module.exports = {
   send,
   sendVerificationOtp,
@@ -328,4 +357,5 @@ module.exports = {
   sendEscalation,
   sendContactMessage,
   sendCredentials,
+  sendInstitutionCredentials,
 };

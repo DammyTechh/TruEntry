@@ -9,6 +9,7 @@ const ROLES = Object.freeze({
   APPLICANT: 'applicant',
   OFFICER: 'officer', // institution admission officer
   REGISTRAR: 'registrar', // institution head / approver
+  INSTITUTION: 'institution', // single admin-onboarded login per school
   JAMB: 'jamb', // regulator
   ADMIN: 'admin', // system administrator
 });
@@ -16,7 +17,7 @@ const ROLES = Object.freeze({
 const ROLE_VALUES = Object.values(ROLES);
 
 // Roles that belong to an institution and must carry institution_id.
-const INSTITUTION_ROLES = Object.freeze([ROLES.OFFICER, ROLES.REGISTRAR]);
+const INSTITUTION_ROLES = Object.freeze([ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION]);
 
 const ENTRY_MODES = Object.freeze({
   UTME: 'utme', // JAMB application

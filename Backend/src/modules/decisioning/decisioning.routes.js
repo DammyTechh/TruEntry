@@ -13,7 +13,7 @@ const service = require('./decisioning.service');
 const ApiError = require('../../utils/ApiError');
 
 const router = express.Router();
-router.use(authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.ADMIN));
+router.use(authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.ADMIN, ROLES.INSTITUTION));
 
 const bodySchema = z.object({
   institutionId: z.string().uuid().optional(),
@@ -43,7 +43,7 @@ router.post(
 
 router.post(
   '/run',
-  authorize(ROLES.OFFICER, ROLES.ADMIN),
+  authorize(ROLES.OFFICER, ROLES.ADMIN, ROLES.INSTITUTION),
   validate({ body: bodySchema }),
   asyncHandler(async (req, res) => {
     const instId = institutionId(req);

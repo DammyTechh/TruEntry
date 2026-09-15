@@ -19,17 +19,17 @@ router.get('/mine/:id/status', authorize(ROLES.APPLICANT), c.status);
 router.post('/mine/:id/post-utme', authorize(ROLES.APPLICANT), validate({ body: v.postUtmeSubmitSchema }), c.submitPostUtme);
 
 /* ----------------------------- Institution ----------------------------- */
-router.get('/institution', authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.ADMIN, ROLES.JAMB), validate({ query: v.listQuerySchema }), c.listInstitution);
-router.get('/institution/:id', authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.ADMIN, ROLES.JAMB), c.getInstitution);
+router.get('/institution', authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.ADMIN, ROLES.JAMB, ROLES.INSTITUTION), validate({ query: v.listQuerySchema }), c.listInstitution);
+router.get('/institution/:id', authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.ADMIN, ROLES.JAMB, ROLES.INSTITUTION), c.getInstitution);
 
 // Officer actions
-router.post('/institution/:id/consider-post-utme', authorize(ROLES.OFFICER, ROLES.ADMIN), validate({ body: v.considerSchema }), c.considerPostUtme);
-router.post('/institution/:id/post-utme-score', authorize(ROLES.OFFICER, ROLES.ADMIN), validate({ body: v.officerPostUtmeScoreSchema }), c.recordPostUtmeScore);
-router.post('/institution/:id/recommend', authorize(ROLES.OFFICER, ROLES.ADMIN), validate({ body: v.decisionSchema }), c.recommend);
+router.post('/institution/:id/consider-post-utme', authorize(ROLES.OFFICER, ROLES.ADMIN, ROLES.INSTITUTION), validate({ body: v.considerSchema }), c.considerPostUtme);
+router.post('/institution/:id/post-utme-score', authorize(ROLES.OFFICER, ROLES.ADMIN, ROLES.INSTITUTION), validate({ body: v.officerPostUtmeScoreSchema }), c.recordPostUtmeScore);
+router.post('/institution/:id/recommend', authorize(ROLES.OFFICER, ROLES.ADMIN, ROLES.INSTITUTION), validate({ body: v.decisionSchema }), c.recommend);
 
 // Registrar actions
-router.post('/institution/:id/approve', authorize(ROLES.REGISTRAR, ROLES.ADMIN), validate({ body: v.decisionSchema }), c.approve);
-router.post('/institution/:id/reject', authorize(ROLES.REGISTRAR, ROLES.ADMIN), validate({ body: v.decisionSchema }), c.reject);
-router.post('/institution/:id/forward-jamb', authorize(ROLES.REGISTRAR, ROLES.ADMIN), validate({ body: v.decisionSchema }), c.forwardToJamb);
+router.post('/institution/:id/approve', authorize(ROLES.REGISTRAR, ROLES.ADMIN, ROLES.INSTITUTION), validate({ body: v.decisionSchema }), c.approve);
+router.post('/institution/:id/reject', authorize(ROLES.REGISTRAR, ROLES.ADMIN, ROLES.INSTITUTION), validate({ body: v.decisionSchema }), c.reject);
+router.post('/institution/:id/forward-jamb', authorize(ROLES.REGISTRAR, ROLES.ADMIN, ROLES.INSTITUTION), validate({ body: v.decisionSchema }), c.forwardToJamb);
 
 module.exports = router;

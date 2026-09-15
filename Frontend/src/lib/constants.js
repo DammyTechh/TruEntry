@@ -1,4 +1,5 @@
 export const ROLES = {
+  INSTITUTION: 'institution',
   APPLICANT: 'applicant',
   OFFICER: 'officer',
   REGISTRAR: 'registrar',
@@ -9,6 +10,7 @@ export const ROLES = {
 // Where each role lands after login.
 export const ROLE_HOME = {
   applicant: '/app',
+  institution: '/institution',
   officer: '/institution',
   registrar: '/institution',
   jamb: '/jamb',

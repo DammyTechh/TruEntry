@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ShieldCheck, BadgeCheck, Lock, CheckCircle2 } from 'lucide-react';
 import Logo from '../../components/ui/Logo';
+import BrandBackdrop from '../../components/ui/BrandBackdrop';
 
 const HIGHLIGHTS = [
   { icon: BadgeCheck, t: 'Verified records', d: 'NIN, JAMB & O-Level checked at the source.' },
@@ -12,8 +13,8 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
   return (
     <div className="flex min-h-screen">
       {/* Brand panel */}
-      <div className="relative hidden w-1/2 overflow-hidden bg-brand-gradient lg:block">
-        <div className="pointer-events-none absolute inset-0  opacity-60" />
+      <div className="relative hidden w-1/2 overflow-hidden lg:block">
+        <BrandBackdrop tone="deep" />
         <div className="relative flex h-full flex-col justify-between p-12">
           <Logo to="/" light />
           <div>
@@ -38,11 +39,12 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
       </div>
 
       {/* Form panel */}
-      <div className="flex flex-1 flex-col bg-primary-surface">
-        <div className="container-tru flex h-16 items-center lg:hidden">
+      <div className="relative flex flex-1 flex-col bg-primary-surface">
+        <BrandBackdrop tone="light" />
+        <div className="relative container-tru flex h-16 items-center lg:hidden">
           <Logo />
         </div>
-        <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="relative flex flex-1 items-center justify-center px-4 py-10">
           <div className="animate-fade-up w-full max-w-md">
             <div className="card p-7 shadow-lift sm:p-8">
               <h1 className="font-display text-2xl font-bold text-primary-dark">{title}</h1>

@@ -1,39 +1,45 @@
 import { ArrowRight, CircleUserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Logo from '../ui/Logo';
+import BrandBackdrop from '../ui/BrandBackdrop';
+import { Button } from '../ui/Primitives';
 import { useAuth } from '../../context/AuthContext';
 
-export function OnboardingLayout({ step, children }) {
+export function OnboardingLayout({ step, totalSteps = 2, children }) {
   const { user } = useAuth();
   const firstName = user?.fullName?.trim()?.split(/\s+/)?.[0] || 'there';
 
   return (
-    <div className="onboarding-surface min-h-screen font-sans text-black">
-      <header className="relative z-20 border-b border-[#F1F4FA] bg-white">
-        <div className="mx-auto flex min-h-[72px] w-full max-w-[1440px] items-center justify-between gap-4 px-4 py-2.5 sm:px-6 lg:px-[60px]">
-          <Logo to="/" className="origin-left scale-[0.88] sm:scale-100" />
-          <Link
-            to="/"
-            className="flex h-11 min-w-[108px] items-center justify-center rounded-xl bg-[#0D57E8] px-5 text-[15px] font-normal text-white transition hover:bg-[#0B4FD4] focus-visible:ring-[#0D57E8]/35 sm:h-[55px] sm:min-w-[154px] sm:text-[18px]"
-          >
-            Home
-          </Link>
+    <div className="relative min-h-screen bg-primary-surface font-sans text-ink">
+      <BrandBackdrop tone="light" />
+
+      <header className="relative z-20 border-b border-border bg-white">
+        <div className="container-tru flex h-16 items-center justify-between gap-4 lg:h-18">
+          <Logo to="/" />
+          <Button to="/" variant="secondary" size="sm">Home</Button>
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto w-full max-w-[765px] px-4 pb-16 pt-7 sm:px-6 sm:pt-8 lg:pb-20">
-        <div className="flex min-h-[49px] w-full items-center justify-between gap-4 rounded-full border border-[#E4E9F5] bg-white px-3.5 py-2.5 sm:px-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-[#0D57E8] text-white">
-              <CircleUserRound className="h-[15px] w-[15px]" strokeWidth={2.2} />
+      <main className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-16 pt-7 sm:px-6 sm:pt-8 lg:pb-20">
+        <div className="flex min-h-[52px] w-full items-center justify-between gap-4 rounded-full border border-border bg-white px-4 py-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+              <CircleUserRound className="h-4 w-4" strokeWidth={2.2} />
             </span>
-            <p className="min-w-0 text-[13px] font-bold leading-5 text-black sm:text-[16px]">
-              Hello {firstName}, Finish setting up your account
+            <p className="min-w-0 truncate text-sm font-semibold text-ink">
+              Hello {firstName}, finish setting up your account
             </p>
           </div>
-          <p className="shrink-0 text-right text-[11px] font-medium leading-5 text-[#6B7280] sm:text-[12px]">
-            <span className="text-[#0D57E8]">STEP {step}</span> of 3
+          <p className="shrink-0 text-right text-xs font-medium text-muted">
+            <span className="font-semibold text-primary">STEP {step}</span> of {totalSteps}
           </p>
+        </div>
+
+        {/* Step progress */}
+        <div className="mt-4 flex gap-2">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div key={i} className={`h-1.5 flex-1 rounded-full ${i < step ? 'bg-primary' : 'bg-primary-100'}`} />
+          ))}
         </div>
 
         <div className="mt-6 sm:mt-8">{children}</div>

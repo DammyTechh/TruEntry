@@ -21,6 +21,7 @@ import VerifyEmail from './pages/auth/VerifyEmail';
 import Login from './pages/auth/Login';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+import ChangePassword from './pages/auth/ChangePassword';
 
 // Onboarding
 import BiodataStep from './pages/onboarding/Biodata';
@@ -55,11 +56,12 @@ import JambAdmitted from './pages/jamb/Admitted';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminUsers from './pages/admin/Users';
 import AdminInstitutions from './pages/admin/Institutions';
+import AdminFeeSettings from './pages/admin/FeeSettings';
 import AdminFinances from './pages/admin/Finances';
 import AdminAudit from './pages/admin/Audit';
 import AdminMock from './pages/admin/Mock';
 
-const staff = [ROLES.OFFICER, ROLES.REGISTRAR];
+const staff = [ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION];
 
 function ApplicantOnboardingBoundary() {
   return (
@@ -112,6 +114,16 @@ export default function App() {
       <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
       <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
 
+      {/* Mandatory password change (system-generated credentials) */}
+      <Route
+        path="/change-password"
+        element={
+          <ProtectedRoute>
+            <ChangePassword />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Applicant onboarding */}
       <Route path="/onboarding" element={<ApplicantOnboardingBoundary />}>
         <Route index element={<OnboardingEntry />} />
@@ -131,17 +143,13 @@ export default function App() {
             </OnboardingStepGate>
           }
         />
-        <Route
-          path="payment"
-          element={
-            <OnboardingStepGate step={3}>
-              <PaymentSummaryStep />
-            </OnboardingStepGate>
-          }
-        />
+        {/* Payment moved to the application flow (fees are charged per
+            application, and verification happens after payment). Kept as a
+            redirect so old links/bookmarks never dead-end. */}
+        <Route path="payment" element={<Navigate to="/app/apply" replace />} />
       </Route>
 
-      {/* Applicant portal: inaccessible until all 3 onboarding steps are complete. */}
+      {/* Applicant portal: reachable once onboarding records are captured. */}
       <Route path="/app" element={<ApplicantAppShell />}>
         <Route index element={<AppDashboard />} />
         <Route path="profile" element={<Profile />} />
@@ -197,6 +205,7 @@ export default function App() {
         <Route path="users" element={<AdminUsers />} />
         <Route path="institutions" element={<AdminInstitutions />} />
         <Route path="finances" element={<AdminFinances />} />
+        <Route path="fee-settings" element={<AdminFeeSettings />} />
         <Route path="audit" element={<AdminAudit />} />
         <Route path="mock" element={<AdminMock />} />
       </Route>

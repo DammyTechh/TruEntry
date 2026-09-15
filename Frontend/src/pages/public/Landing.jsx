@@ -3,6 +3,7 @@ import {
   UserCheck, Building2, Gavel, FileCheck2, Lock, TrendingUp, Clock,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Primitives';
+import BrandBackdrop from '../../components/ui/BrandBackdrop';
 
 const STATS = [
   { value: '50k+', label: 'Applications processed' },
@@ -35,8 +36,9 @@ export default function Landing() {
   return (
     <div>
       {/* ============ HERO ============ */}
-      <section className="border-b border-border bg-white">
-        <div className="container-tru grid items-center gap-16 py-16 lg:grid-cols-[1.05fr,0.95fr] lg:py-24">
+      <section className="relative overflow-hidden border-b border-border bg-white">
+        <BrandBackdrop tone="light" />
+        <div className="relative container-tru grid items-center gap-16 py-16 lg:grid-cols-[1.05fr,0.95fr] lg:py-24">
           <div className="animate-fade-up">
             <span className="chip border border-border bg-primary-surface text-primary">
               <span className="h-1.5 w-1.5 rounded-full bg-success" /> Admissions Quality Assurance
@@ -180,13 +182,16 @@ export default function Landing() {
 
       {/* ============ CTA ============ */}
       <section className="container-tru pb-20">
-        <div className="overflow-hidden rounded-3xl bg-brand-gradient px-8 py-16 text-center sm:px-16">
+        <div className="relative overflow-hidden rounded-3xl px-8 py-16 text-center sm:px-16">
+          <BrandBackdrop tone="deep" />
+          <div className="relative">
           <FileCheck2 className="mx-auto h-11 w-11 text-white/90" strokeWidth={1.6} />
           <h2 className="mt-5 font-display text-3xl font-bold text-white sm:text-4xl">Ready to begin your admission?</h2>
           <p className="mx-auto mt-3 max-w-lg text-primary-100">Create your account and start a verified, transparent admission today.</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button to="/register" size="lg" className="!bg-white !text-primary hover:!bg-primary-50">Get started</Button>
             <Button to="/institutions" size="lg" className="!bg-white/10 !text-white hover:!bg-white/20">Browse institutions</Button>
+          </div>
           </div>
         </div>
       </section>

@@ -16,6 +16,17 @@ function extractToken(req) {
 }
 
 /**
+ * Endpoints that remain usable while `must_change_password` is set, so the user
+ * can actually complete the change (and sign out).
+ */
+const PASSWORD_CHANGE_EXEMPT = ['/auth/change-password', '/auth/logout', '/auth/me', '/auth/refresh'];
+
+function isPasswordChangeExempt(req) {
+  const path = `${req.baseUrl || ''}${req.path || ''}`;
+  return PASSWORD_CHANGE_EXEMPT.some((p) => path.endsWith(p));
+}
+
+/**
  * Require a valid access token. Loads a fresh user row so revoked / deactivated
  * accounts are rejected immediately, then attaches `req.user`.
  */
@@ -27,13 +38,22 @@ const authenticate = asyncHandler(async (req, _res, next) => {
 
   const user = await queryOne(
     `SELECT id, email, role, full_name, phone, institution_id,
-            is_email_verified, is_active
+            is_email_verified, is_active, must_change_password
        FROM users WHERE id = $1`,
     [payload.sub]
   );
 
   if (!user) throw ApiError.unauthorized('Account no longer exists');
   if (!user.is_active) throw ApiError.forbidden('Account is deactivated', { code: 'ACCOUNT_DISABLED' });
+
+  // Accounts created with a system-generated password (e.g. institutions
+  // onboarded by an admin) may do nothing until that password is replaced.
+  // Only the endpoints needed to complete that change stay reachable.
+  if (user.must_change_password && !isPasswordChangeExempt(req)) {
+    throw ApiError.forbidden('You must change your password before continuing', {
+      code: 'PASSWORD_CHANGE_REQUIRED',
+    });
+  }
 
   req.user = {
     id: user.id,
@@ -43,6 +63,7 @@ const authenticate = asyncHandler(async (req, _res, next) => {
     phone: user.phone,
     institutionId: user.institution_id,
     isEmailVerified: user.is_email_verified,
+    mustChangePassword: Boolean(user.must_change_password),
   };
   req.token = token;
   next();

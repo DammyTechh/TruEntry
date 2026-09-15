@@ -179,23 +179,60 @@ async function uploadImage(userId, file) {
  */
 async function completion(userId) {
   const p = await loadProfileRow(userId);
+
   const checks = {
     ninVerified: !!p?.nin_verified,
     jambVerified: !!p?.jamb_verified,
     olevelVerified: !!p?.olevel_verified,
     hasImage: !!p?.profile_image_url,
-    hasBiodata: !!(p?.date_of_birth && p?.gender && p?.state_of_origin),
+    hasBiodata: !!(p?.date_of_birth && p?.gender && p?.state_of_origin && p?.lga),
     hasLocation: !!p?.location,
+    hasNin: !!p?.nin,
+    hasJambRegNo: !!p?.jamb_reg_no,
+    hasOlevelRecord: !!p?.olevel_reg_no,
   };
+
+  // ---------------------------------------------------------------------
+  // Onboarding contract (authoritative for the client).
+  //
+  // Onboarding captures RECORDS only. Credential verification costs money, so
+  // it happens after the application fee is paid — during the application
+  // flow, not here. Onboarding is therefore complete once the applicant has
+  // supplied their biodata/photo/NIN and their exam registration details.
+  // ---------------------------------------------------------------------
+  const biodataComplete = checks.hasBiodata && checks.hasLocation && checks.hasImage && checks.hasNin;
+  const examDetailsComplete = checks.hasJambRegNo && checks.hasOlevelRecord;
+  const onboardingComplete = biodataComplete && examDetailsComplete;
+
+  const steps = {
+    biodata: { complete: biodataComplete, order: 1 },
+    examDetails: { complete: examDetailsComplete, order: 2 },
+  };
+
+  const currentStep = !biodataComplete ? 1 : !examDetailsComplete ? 2 : null;
+
   const done = Object.values(checks).filter(Boolean).length;
   const total = Object.keys(checks).length;
+
   return {
     checks,
+    steps,
+    currentStep,
+    onboardingComplete,
     percentage: Math.round((done / total) * 100),
-    complete: done === total,
-    canApply: checks.ninVerified && checks.hasBiodata && checks.hasImage,
+    // Legacy field: "everything including verification is done".
+    complete: onboardingComplete,
+    // An applicant may start an application once onboarding records exist.
+    // Verification happens after payment, inside the application flow.
+    canApply: onboardingComplete,
+    verification: {
+      nin: !!p?.nin_verified,
+      jamb: !!p?.jamb_verified,
+      olevel: !!p?.olevel_verified,
+    },
   };
 }
+
 
 module.exports = {
   getProfile,

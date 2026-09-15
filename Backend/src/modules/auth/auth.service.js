@@ -91,6 +91,9 @@ function publicUser(u) {
     role: u.role,
     institutionId: u.institution_id || null,
     isEmailVerified: u.is_email_verified,
+    // True for system-generated passwords (e.g. institution accounts created by
+    // an admin). The client must send the user to /change-password first.
+    mustChangePassword: Boolean(u.must_change_password),
     createdAt: u.created_at,
   };
 }
@@ -227,7 +230,12 @@ async function resetPassword({ email, otp, password }) {
   await consumeOtp(user.id, 'password_reset', otp);
   const passwordHash = await hashPassword(password);
   await transaction(async (client) => {
-    await client.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, user.id]);
+    await client.query(
+      `UPDATE users
+          SET password_hash = $1, must_change_password = FALSE, password_changed_at = NOW()
+        WHERE id = $2`,
+      [passwordHash, user.id]
+    );
     // Invalidate all sessions.
     await client.query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL', [user.id]);
   });
@@ -239,7 +247,14 @@ async function changePassword(userId, { currentPassword, newPassword }) {
   const ok = await comparePassword(currentPassword, user.password_hash);
   if (!ok) throw ApiError.badRequest('Current password is incorrect', { code: 'WRONG_PASSWORD' });
   const passwordHash = await hashPassword(newPassword);
-  await query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
+  await query(
+    `UPDATE users
+        SET password_hash = $1,
+            must_change_password = FALSE,
+            password_changed_at = NOW()
+      WHERE id = $2`,
+    [passwordHash, userId]
+  );
   return { changed: true };
 }
 

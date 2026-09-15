@@ -41,6 +41,8 @@ const definition = {
     { name: 'Chatbot', description: 'AI assistant and human escalation' },
     { name: 'Notifications', description: 'In-app notifications' },
     { name: 'Admin', description: 'System administration, users, finances, audit, mock data' },
+    { name: 'Institution Onboarding', description: 'Admin-driven institution registration and credential issuance' },
+    { name: 'Fee Settings', description: "Application fees per institution type and O'Level second-sitting surcharge" },
   ],
   components: {
     securitySchemes: {

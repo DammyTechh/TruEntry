@@ -13,7 +13,7 @@ const service = require('./report.service');
 const ApiError = require('../../utils/ApiError');
 
 const router = express.Router();
-router.use(authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.JAMB, ROLES.ADMIN));
+router.use(authenticate, authorize(ROLES.OFFICER, ROLES.REGISTRAR, ROLES.JAMB, ROLES.ADMIN, ROLES.INSTITUTION));
 
 const generateSchema = z.object({
   institutionId: z.string().uuid().optional(),

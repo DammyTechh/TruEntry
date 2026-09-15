@@ -31,7 +31,7 @@ const updateSchema = z.object({
  * Institution-scoped users may only manage their own institution's policy.
  */
 function resolveInstitution(req) {
-  if ([ROLES.OFFICER, ROLES.REGISTRAR].includes(req.user.role)) return req.user.institutionId;
+  if ([ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION].includes(req.user.role)) return req.user.institutionId;
   return req.body.institutionId || req.query.institutionId || null;
 }
 
@@ -50,7 +50,7 @@ router.get(
 router.get(
   '/',
   authenticate,
-  authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR),
+  authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION),
   asyncHandler(async (req, res) => {
     const institutionId =
       req.user.role === ROLES.ADMIN ? req.query.institutionId : req.user.institutionId;
@@ -63,7 +63,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR),
+  authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION),
   uploadPdf.single('file'),
   validate({ body: createSchema }),
   asyncHandler(async (req, res) => {
@@ -88,7 +88,7 @@ router.post(
 router.put(
   '/:id',
   authenticate,
-  authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR),
+  authorize(ROLES.ADMIN, ROLES.OFFICER, ROLES.REGISTRAR, ROLES.INSTITUTION),
   validate({ body: updateSchema }),
   asyncHandler(async (req, res) => {
     const data = await service.updatePolicy(req.params.id, req.body);

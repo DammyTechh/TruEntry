@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
+  Wallet,
   LayoutDashboard, UserCircle, FileText, ListChecks, Scale, CreditCard,
   Building2, BarChart3, ShieldCheck, Settings, Zap, LogOut, Menu, X, ChevronsUpDown,
 } from 'lucide-react';
 import Logo from '../ui/Logo';
+import BrandBackdrop from '../ui/BrandBackdrop';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationsBell } from './NotificationsBell';
 
@@ -15,6 +17,14 @@ const NAV_BY_ROLE = {
     { to: '/app/apply', label: 'Apply', icon: Zap },
     { to: '/app/applications', label: 'My applications', icon: FileText },
     { to: '/app/payments', label: 'Payments', icon: CreditCard },
+  ],
+  institution: [
+    { to: '/institution', label: 'Dashboard', icon: LayoutDashboard, end: true },
+    { to: '/institution/applications', label: 'Applications', icon: FileText },
+    { to: '/institution/decisioning', label: 'Decisioning', icon: Scale },
+    { to: '/institution/approvals', label: 'Admissions', icon: ShieldCheck },
+    { to: '/institution/departments', label: 'Departments', icon: Building2 },
+    { to: '/institution/reports', label: 'Reports', icon: BarChart3 },
   ],
   officer: [
     { to: '/institution', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -40,13 +50,15 @@ const NAV_BY_ROLE = {
     { to: '/admin/users', label: 'Users', icon: UserCircle },
     { to: '/admin/institutions', label: 'Institutions', icon: Building2 },
     { to: '/admin/finances', label: 'Finances', icon: CreditCard },
+    { to: '/admin/fee-settings', label: 'Application fees', icon: Wallet },
     { to: '/admin/audit', label: 'Audit logs', icon: ListChecks },
     { to: '/admin/mock', label: 'Mock data', icon: Settings },
   ],
 };
 
 const ROLE_LABEL = {
-  applicant: 'Applicant', officer: 'Admission Officer', registrar: 'Registrar',
+  applicant: 'Applicant',
+  institution: 'Institution', officer: 'Admission Officer', registrar: 'Registrar',
   jamb: 'JAMB Regulator', admin: 'Administrator',
 };
 
@@ -124,8 +136,9 @@ export default function DashboardShell() {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-gradient text-sm font-semibold text-white lg:hidden">{initials}</div>
           </div>
         </header>
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl animate-fade-in">
+        <main className="relative flex-1 p-4 sm:p-6 lg:p-8">
+          <BrandBackdrop tone="light" />
+          <div className="relative mx-auto max-w-7xl animate-fade-in">
             <Outlet />
           </div>
         </main>

@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Menu, X, ArrowRight, Mail, MapPin, Phone } from 'lucide-react';
 import { FaXTwitter, FaLinkedinIn, FaInstagram, FaFacebookF, FaGithub } from 'react-icons/fa6';
 import Logo from '../ui/Logo';
+import BrandBackdrop from '../ui/BrandBackdrop';
 import { Button } from '../ui/Primitives';
 import { useAuth } from '../../context/AuthContext';
 import { ROLE_HOME } from '../../lib/constants';
@@ -96,8 +97,8 @@ const SOCIALS = [
 
 export function Footer() {
   return (
-    <footer className="relative mt-20 overflow-hidden bg-ink text-white">
-      <div className="pointer-events-none absolute inset-0  opacity-40" />
+    <footer className="relative mt-20 overflow-hidden bg-primary-950 text-white">
+      <BrandBackdrop tone="deep" />
       <div className="container-tru relative">
         {/* CTA band */}
         <div className="grid gap-6 border-b border-white/10 py-12 md:grid-cols-2 md:items-center">

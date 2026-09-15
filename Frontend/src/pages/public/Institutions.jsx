@@ -6,6 +6,7 @@ import { Pagination, PageLoader } from '../../components/ui/Misc';
 import { EmptyState, Badge } from '../../components/ui/Primitives';
 import { Select } from '../../components/ui/Field';
 import { NIGERIAN_STATES } from '../../lib/constants';
+import BrandBackdrop from '../../components/ui/BrandBackdrop';
 
 export default function Institutions() {
   const [search, setSearch] = useState('');

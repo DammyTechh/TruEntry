@@ -6,7 +6,6 @@ const OnboardingContext = createContext(null);
 const STEP_ROUTES = {
   1: '/onboarding/biodata',
   2: '/onboarding/exam-details',
-  3: '/onboarding/payment',
 };
 
 const DEV_PROGRESS_PREFIX = 'truentry:dev-onboarding-progress:';
@@ -25,14 +24,14 @@ function readDevCompletedThrough(userId) {
   if (!import.meta.env.DEV || typeof window === 'undefined' || !userId) return 0;
 
   const value = Number(window.localStorage.getItem(devProgressKey(userId)) || 0);
-  return Number.isFinite(value) ? Math.max(0, Math.min(3, value)) : 0;
+  return Number.isFinite(value) ? Math.max(0, Math.min(2, value)) : 0;
 }
 
 function writeDevCompletedThrough(userId, step) {
   if (!import.meta.env.DEV || typeof window === 'undefined' || !userId) return;
 
   const next = Math.max(readDevCompletedThrough(userId), Number(step) || 0);
-  window.localStorage.setItem(devProgressKey(userId), String(Math.min(3, next)));
+  window.localStorage.setItem(devProgressKey(userId), String(Math.min(2, next)));
 }
 
 function readLegacySessionBypasses() {
@@ -62,58 +61,35 @@ function buildStatus(profilePayload, completionPayload) {
   const userId = profilePayload?.id;
   const legacyBypasses = readLegacySessionBypasses();
 
-  // Development-only progress is account-scoped and persisted in localStorage.
-  // It exists solely so the frontend workflow can be tested while the current
-  // backend image/NIN/O-Level test services are unavailable. Production builds
-  // never read or write this value.
+  // Development-only progress, account-scoped, so the flow can be exercised
+  // while exam/verification test services are unavailable. Never used in prod.
   const devCompletedThrough = readDevCompletedThrough(userId);
 
-  // Prefer the richer backend contract once it exists. Until then, derive the
-  // first two steps from the profile data and today's completion checks.
-  const backendBiodataComplete = Boolean(firstDefined(
+  // The backend is the authority. Onboarding captures RECORDS only —
+  // verification and payment belong to the application flow, so they are NOT
+  // part of onboarding completion.
+  const biodataComplete = Boolean(firstDefined(
     steps.biodata?.complete,
-    steps.profile?.complete,
-    checks.biodataComplete,
-    profile.dateOfBirth &&
-      profile.gender &&
-      profile.stateOfOrigin &&
-      profile.lga &&
-      profile.location &&
-      (profile.profileImageUrl || legacyBypasses.photo) &&
-      (profile.ninVerified || legacyBypasses.nin)
-  ));
+    checks.hasBiodata && checks.hasLocation && checks.hasImage && checks.hasNin,
+    profile.dateOfBirth && profile.gender && profile.stateOfOrigin && profile.lga &&
+      profile.location && (profile.profileImageUrl || legacyBypasses.photo) &&
+      (profile.nin || legacyBypasses.nin)
+  )) || devCompletedThrough >= 1;
 
-  const backendExamDetailsComplete = Boolean(firstDefined(
+  const examDetailsComplete = Boolean(firstDefined(
     steps.examDetails?.complete,
-    steps.exams?.complete,
-    checks.examDetailsComplete,
-    profile.jambVerified && (profile.olevelVerified || legacyBypasses.olevel)
+    checks.hasJambRegNo && checks.hasOlevelRecord,
+    profile.jambRegNo && profile.olevelRegNo
+  )) || devCompletedThrough >= 2;
+
+  const complete = Boolean(firstDefined(
+    completion.onboardingComplete,
+    biodataComplete && examDetailsComplete
   ));
 
-  const biodataComplete = backendBiodataComplete || devCompletedThrough >= 1;
-  const examDetailsComplete = backendExamDetailsComplete || devCompletedThrough >= 2;
-
-  const paymentSignal = firstDefined(
-    steps.payment?.complete,
-    checks.profileCompletionPaymentPaid,
-    checks.paymentCompleted,
-    checks.onboardingPaymentPaid,
-    completion.profileCompletionPaymentPaid,
-    completion.paymentCompleted,
-    completion.onboardingPaymentPaid
-  );
-
-  // IMPORTANT: the current backend does not yet expose the onboarding payment.
-  // We intentionally do not treat its legacy `complete: true` as final
-  // onboarding completion because successful payment is part of onboarding.
-  const paymentComplete = paymentSignal === true;
-  const complete = biodataComplete && examDetailsComplete && paymentComplete;
-
-  const derivedCurrentStep = !biodataComplete ? 1 : !examDetailsComplete ? 2 : 3;
+  const derivedCurrentStep = !biodataComplete ? 1 : !examDetailsComplete ? 2 : 2;
   const backendCurrentStep = Number(completion.currentStep);
-  const currentStep = [1, 2, 3].includes(backendCurrentStep)
-    ? Math.max(backendCurrentStep, derivedCurrentStep)
-    : derivedCurrentStep;
+  const currentStep = [1, 2].includes(backendCurrentStep) ? backendCurrentStep : derivedCurrentStep;
 
   return {
     complete,
@@ -122,13 +98,13 @@ function buildStatus(profilePayload, completionPayload) {
     steps: {
       biodata: biodataComplete,
       examDetails: examDetailsComplete,
-      payment: paymentComplete,
     },
-    backendPaymentStateAvailable: paymentSignal !== undefined,
+    verification: completion.verification || { nin: false, jamb: false, olevel: false },
     devCompletedThrough,
     legacyBypassDetected: legacyBypasses.photo || legacyBypasses.nin || legacyBypasses.olevel,
   };
 }
+
 
 export function OnboardingProvider({ children }) {
   const [profile, setProfile] = useState(null);

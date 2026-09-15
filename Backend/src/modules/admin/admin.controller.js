@@ -79,6 +79,43 @@ const createMock = asyncHandler(async (req, res) => {
   return created(res, { message: `Mock ${req.params.kind} record created`, data });
 });
 
+/* ------------------- Institution onboarding & fee settings ------------------- */
+const onboarding = require('../institutions/onboarding.service');
+const feeSettings = require('./feeSettings.service');
+
+const onboardInstitution = asyncHandler(async (req, res) => {
+  const data = await onboarding.onboardInstitution(req.body, req.user.id);
+  return created(res, {
+    message: data.credentialsEmailed
+      ? 'Institution onboarded. Credentials have been emailed.'
+      : 'Institution onboarded, but the credentials email could not be sent. Use resend.',
+    data,
+  });
+});
+
+const listOnboardedInstitutions = asyncHandler(async (req, res) => {
+  const q = req.validatedQuery || req.query;
+  const page = Number(q.page) || 1;
+  const limit = Number(q.limit) || 20;
+  const { items, total } = await onboarding.listOnboarded({ ...q, page, limit });
+  return paginated(res, { message: 'Institutions', data: items, total, page, limit });
+});
+
+const resendInstitutionCredentials = asyncHandler(async (req, res) => {
+  const data = await onboarding.resendCredentials(req.params.id);
+  return success(res, { message: 'Credentials re-issued and emailed', data });
+});
+
+const listFeeSettings = asyncHandler(async (req, res) => {
+  const data = await feeSettings.list();
+  return success(res, { message: 'Fee settings', data });
+});
+
+const updateFeeSettings = asyncHandler(async (req, res) => {
+  const data = await feeSettings.update(req.params.type, req.body, req.user.id);
+  return success(res, { message: 'Fee settings updated', data });
+});
+
 module.exports = {
   dashboard,
   institutionStatus,
@@ -93,4 +130,9 @@ module.exports = {
   auditLogs,
   listMock,
   createMock,
+  onboardInstitution,
+  listOnboardedInstitutions,
+  resendInstitutionCredentials,
+  listFeeSettings,
+  updateFeeSettings,
 };

@@ -10,6 +10,13 @@ export function ProtectedRoute({ allow, children }) {
   if (loading) return <PageLoader label="Checking your session…" />;
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
 
+  // Accounts created with a system-generated password (institutions onboarded
+  // by an admin) cannot use the app until the password is replaced. The API
+  // enforces this too; this simply avoids a wall of 403s.
+  if (user.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+
   if (allow && !allow.includes(user.role)) {
     // Signed in but wrong portal — send them to their own.
     return <Navigate to={ROLE_HOME[user.role] || '/'} replace />;
