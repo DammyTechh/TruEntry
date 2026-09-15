@@ -42,6 +42,8 @@ import InstDashboard from './pages/institution/Dashboard';
 import InstApplications from './pages/institution/Applications';
 import InstApplicationDetail from './pages/institution/ApplicationDetail';
 import Decisioning from './pages/institution/Decisioning';
+import Quotas from './pages/institution/Quotas';
+import QuotaBuilder from './pages/institution/QuotaBuilder';
 import Departments from './pages/institution/Departments';
 import InstReports from './pages/institution/Reports';
 import Approvals from './pages/institution/Approvals';
@@ -172,6 +174,9 @@ export default function App() {
         <Route path="applications" element={<InstApplications />} />
         <Route path="applications/:id" element={<InstApplicationDetail />} />
         <Route path="decisioning" element={<Decisioning />} />
+        <Route path="quotas" element={<Quotas />} />
+        <Route path="quotas/new" element={<QuotaBuilder />} />
+        <Route path="quotas/:id" element={<QuotaBuilder />} />
         <Route path="departments" element={<Departments />} />
         <Route path="reports" element={<InstReports />} />
         <Route path="approvals" element={<Approvals />} />

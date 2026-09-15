@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
+  Target,
   Wallet,
   LayoutDashboard, UserCircle, FileText, ListChecks, Scale, CreditCard,
   Building2, BarChart3, ShieldCheck, Settings, Zap, LogOut, Menu, X, ChevronsUpDown,
@@ -21,6 +22,7 @@ const NAV_BY_ROLE = {
   institution: [
     { to: '/institution', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/institution/applications', label: 'Applications', icon: FileText },
+    { to: '/institution/quotas', label: 'Quota', icon: Target },
     { to: '/institution/decisioning', label: 'Decisioning', icon: Scale },
     { to: '/institution/approvals', label: 'Admissions', icon: ShieldCheck },
     { to: '/institution/departments', label: 'Departments', icon: Building2 },
