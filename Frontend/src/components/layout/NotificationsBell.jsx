@@ -36,7 +36,7 @@ export function NotificationsBell() {
         )}
       </button>
       {open && (
-        <div className="animate-scale-in absolute right-0 mt-2 w-80 overflow-hidden rounded-2xl border border-border bg-white shadow-pop">
+        <div className="animate-fade-in absolute right-0 mt-2 w-80 overflow-hidden rounded-2xl border border-border bg-white shadow-pop">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <span className="text-sm font-semibold text-ink">Notifications</span>
             <button onClick={markAll} className="inline-flex items-center gap-1 text-xs text-primary hover:underline"><CheckCheck className="h-3.5 w-3.5" /> Mark all read</button>

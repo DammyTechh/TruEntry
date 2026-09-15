@@ -25,8 +25,8 @@ export default function Institutions() {
   return (
     <div>
       {/* header band */}
-      <div className="relative overflow-hidden bg-brand-soft">
-        <div className="absolute inset-0 bg-mesh opacity-60" />
+      <div className="border-b border-border bg-white">
+        
         <div className="container-tru relative py-14">
           <span className="chip bg-white text-primary shadow-xs"><Building2 className="h-3.5 w-3.5" /> Accredited institutions</span>
           <h1 className="mt-4 font-display text-3xl font-bold text-primary-dark sm:text-4xl">Find your institution</h1>
@@ -59,7 +59,7 @@ export default function Institutions() {
               {items.map((i) => (
                 <Link key={i.id} to={`/institutions/${i.id}`} className="card card-hover group p-5">
                   <div className="flex items-start justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-gradient font-display text-base font-bold text-white shadow-float">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-gradient font-display text-base font-bold text-white shadow-lift">
                       {i.code?.slice(0, 2) || 'IN'}
                     </div>
                     {i.hasPostUtme && <Badge className="bg-primary-light text-primary">Post-UTME</Badge>}

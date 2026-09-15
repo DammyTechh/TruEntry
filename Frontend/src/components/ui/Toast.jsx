@@ -40,7 +40,7 @@ export function ToastProvider({ children }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`animate-scale-in flex w-full max-w-sm items-start gap-3 rounded-xl border border-border border-l-4 bg-white px-4 py-3 shadow-pop ${STYLES[t.type]}`}
+            className={`animate-fade-in flex w-full max-w-sm items-start gap-3 rounded-xl border border-border border-l-4 bg-white px-4 py-3 shadow-pop ${STYLES[t.type]}`}
           >
             <svg
               className={`mt-0.5 h-5 w-5 shrink-0 ${t.type === 'success' ? 'text-success' : t.type === 'error' ? 'text-danger' : 'text-primary'}`}

@@ -6,24 +6,21 @@ export function Spinner({ className = 'h-4 w-4' }) {
 }
 
 const VARIANTS = {
-  primary:
-    'bg-primary text-white shadow-[0_6px_16px_-6px_rgba(11,77,224,0.5)] hover:bg-primary-hover hover:shadow-[0_10px_22px_-8px_rgba(11,77,224,0.55)] hover:-translate-y-0.5 active:translate-y-0',
-  gradient:
-    'bg-brand-gradient text-white shadow-float hover:-translate-y-0.5 active:translate-y-0 sheen',
-  secondary: 'bg-white text-ink border border-border hover:border-primary/40 hover:bg-primary-surface',
+  primary: 'bg-primary text-white hover:bg-primary-hover shadow-xs',
+  gradient: 'bg-brand-gradient text-white shadow-soft',
+  secondary: 'bg-white text-ink border border-border hover:bg-primary-surface hover:border-primary/30',
   ghost: 'text-primary hover:bg-primary-light',
-  danger: 'bg-danger text-white hover:bg-red-700 shadow-[0_6px_16px_-6px_rgba(220,38,38,0.5)]',
+  danger: 'bg-danger text-white hover:bg-red-700',
   subtle: 'bg-primary-light text-primary hover:bg-primary-100',
   dark: 'bg-ink text-white hover:bg-primary-950',
-};
+}
 const SIZES = { sm: 'px-3.5 py-2 text-sm', md: 'px-5 py-2.5 text-sm', lg: 'px-6 py-3.5 text-base' };
 
 export function Button({
   as = 'button', to, href, variant = 'primary', size = 'md',
   loading = false, disabled = false, className = '', children, ...props
 }) {
-  const cls = `group inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200
-    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${VARIANTS[variant]} ${SIZES[size]} ${className}`;
+  const cls = `inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${VARIANTS[variant]} ${SIZES[size]} ${className}`;
   const content = (<>{loading && <Spinner />}{children}</>);
   if (to) return <Link to={to} className={cls} {...props}>{content}</Link>;
   if (href) return <a href={href} className={cls} {...props}>{content}</a>;

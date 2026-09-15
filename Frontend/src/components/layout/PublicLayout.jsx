@@ -97,7 +97,7 @@ const SOCIALS = [
 export function Footer() {
   return (
     <footer className="relative mt-20 overflow-hidden bg-ink text-white">
-      <div className="pointer-events-none absolute inset-0 bg-mesh opacity-40" />
+      <div className="pointer-events-none absolute inset-0  opacity-40" />
       <div className="container-tru relative">
         {/* CTA band */}
         <div className="grid gap-6 border-b border-white/10 py-12 md:grid-cols-2 md:items-center">
