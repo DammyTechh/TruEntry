@@ -36,73 +36,72 @@ export default function Landing() {
   return (
     <div>
       {/* ============ HERO ============ */}
-      <section className="relative overflow-hidden border-b border-border bg-white">
+      <section className="relative overflow-hidden bg-[#F5F3FE]">
         <BrandBackdrop tone="light" />
-        <div className="relative container-tru grid items-center gap-16 py-16 lg:grid-cols-[1.05fr,0.95fr] lg:py-24">
-          <div className="animate-fade-up">
-            <span className="chip border border-border bg-primary-surface text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-success" /> Admissions Quality Assurance
+
+        <div className="relative mx-auto grid w-full max-w-[1500px] items-center gap-10 px-4 pt-12 sm:px-6 lg:grid-cols-[minmax(0,44%)_minmax(0,56%)] lg:gap-6 lg:px-0 lg:pl-10 lg:pt-4 xl:pl-16">
+          {/* ---- Copy ---- */}
+          <div className="animate-fade-up lg:py-16">
+            <span className="chip border border-border bg-white text-ink shadow-xs">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" /> Admissions, made simpler
             </span>
-            <h1 className="mt-6 font-display text-[2.6rem] font-extrabold leading-[1.05] tracking-tight text-ink sm:text-6xl">
-              Admissions you<br className="hidden sm:block" /> can trust.
+
+            <h1 className="mt-6 font-display text-[2.75rem] font-extrabold leading-[1.04] tracking-[-0.03em] text-ink sm:text-6xl">
+              Your next<br />chapter starts<br />
+              <span className="text-primary">here.</span>
             </h1>
-            <p className="mt-5 max-w-lg text-lg leading-relaxed text-muted">
-              TruEntry digitises, secures and automates tertiary admissions in Nigeria — from application through to JAMB admission.
+
+            <p className="mt-6 max-w-md text-[1.0625rem] leading-relaxed text-muted">
+              TruEntry digitises, secures and automates tertiary admissions in Nigeria — from application
+              through to JAMB admission.
             </p>
+
             <div className="mt-8 flex flex-wrap gap-3">
               <Button to="/register" size="lg">Apply now <ArrowRight className="h-5 w-5" /></Button>
               <Button to="/institutions" size="lg" variant="secondary">Explore institutions</Button>
             </div>
-            <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-border pt-6 text-sm text-muted">
+
+            <div className="mt-10 flex flex-wrap gap-3">
               {['NIN verified', 'JAMB integrated', 'WAEC / NECO / NABTEB'].map((t) => (
-                <span key={t} className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success" /> {t}</span>
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm font-medium text-ink shadow-xs"
+                >
+                  <CheckCircle2 className="h-4.5 w-4.5 text-success" /> {t}
+                </span>
               ))}
             </div>
+
+            <p className="mt-10 text-[0.7rem] font-medium uppercase tracking-[0.28em] text-muted/45">
+              Same dreams. A brighter tomorrow.
+            </p>
           </div>
 
-          {/* Calm, static status panel — no floating overlays */}
-          <div className="animate-fade-up lg:pl-6">
-            <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-lift">
-              <div className="flex items-center justify-between border-b border-border bg-primary-surface px-6 py-4">
-                <div>
-                  <div className="text-sm font-semibold text-ink">Application status</div>
-                  <div className="text-xs text-muted">University of Lagos · Computer Science</div>
-                </div>
-                <span className="chip bg-green-50 text-success">Admitted</span>
-              </div>
-              <div className="space-y-4 px-6 py-6">
-                {[['Applied', 100], ['Reviewed', 100], ['Post-UTME', 100], ['Recommended', 100], ['Approved', 100], ['Admitted', 100]].map(([label, pct]) => (
-                  <div key={label} className="flex items-center gap-3">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-white">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="mb-1.5 text-xs font-medium text-ink">{label}</div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-primary-100">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-px border-t border-border bg-border">
-                <div className="bg-white px-6 py-4">
-                  <div className="text-xs text-muted">JAMB verified</div>
-                  <div className="mt-0.5 font-semibold text-ink">Score 298</div>
-                </div>
-                <div className="bg-white px-6 py-4">
-                  <div className="text-xs text-muted">Payment</div>
-                  <div className="mt-0.5 font-semibold text-ink">₦2,500 · Paid</div>
-                </div>
-              </div>
-            </div>
+          {/* ---- Artwork: scaled so its edges leave the viewport instead of
+               stopping on a visible line ---- */}
+          <div className="relative overflow-hidden lg:-mr-10 lg:-mb-6 xl:-mr-16">
+            <img
+              src="/brand/hero.jpg"
+              srcSet="/brand/hero-1200.jpg 1200w, /brand/hero.jpg 1672w"
+              sizes="(max-width: 1024px) 100vw, 56vw"
+              alt="Applicants tracking a verified TruEntry admission together"
+              className="h-auto w-full origin-bottom-right object-contain lg:scale-[1.06]"
+              width="1672"
+              height="941"
+              fetchPriority="high"
+            />
+            {/* Feather every inner edge into the section colour so the artwork
+                dissolves into the page instead of ending on a seam. */}
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-[#F5F3FE] to-transparent sm:w-28" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#F5F3FE] to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#F5F3FE] via-[#F5F3FE]/60 to-transparent" />
           </div>
         </div>
       </section>
 
       {/* ============ STATS ============ */}
       <section className="border-b border-border bg-white">
-        <div className="container-tru grid grid-cols-2 gap-8 py-10 sm:grid-cols-4">
+        <div className="container-tru grid grid-cols-2 gap-8 py-12 sm:grid-cols-4">
           {STATS.map((s) => (
             <div key={s.label}>
               <div className="font-display text-3xl font-extrabold text-ink sm:text-4xl">{s.value}</div>
