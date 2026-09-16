@@ -36,7 +36,7 @@ export default function Landing() {
   return (
     <div>
       {/* ============ HERO ============ */}
-      <section className="relative overflow-hidden bg-[#F5F3FE]">
+      <section className="relative overflow-hidden bg-[#F4F7FF]">
         <BrandBackdrop tone="light" />
 
         <div className="relative mx-auto grid w-full max-w-[1500px] items-center gap-10 px-4 pt-12 sm:px-6 lg:grid-cols-[minmax(0,44%)_minmax(0,56%)] lg:gap-6 lg:px-0 lg:pl-10 lg:pt-4 xl:pl-16">
@@ -92,9 +92,9 @@ export default function Landing() {
             />
             {/* Feather every inner edge into the section colour so the artwork
                 dissolves into the page instead of ending on a seam. */}
-            <div className="pointer-events-none absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-[#F5F3FE] to-transparent sm:w-28" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#F5F3FE] to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#F5F3FE] via-[#F5F3FE]/60 to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-[#F4F7FF] to-transparent sm:w-28" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#F4F7FF] to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#F4F7FF] via-[#F4F7FF]/60 to-transparent" />
           </div>
         </div>
       </section>

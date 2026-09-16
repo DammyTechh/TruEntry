@@ -16,8 +16,8 @@ export default function BrandBackdrop({ tone = 'deep', className = '' }) {
   const id = deep ? 'd' : 'l';
 
   // Filament colours: a cool white core over a blue halo on dark panels.
-  const core = deep ? '#F2ECFF' : '#5121E0';
-  const halo = deep ? '#A98BFF' : '#7644F0';
+  const core = deep ? '#EAF2FF' : '#0F47CC';
+  const halo = deep ? '#82A9FF' : '#2C61EE';
 
   const coreOpacity = deep ? 1 : 0.16;
   const haloOpacity = deep ? 0.8 : 0.11;

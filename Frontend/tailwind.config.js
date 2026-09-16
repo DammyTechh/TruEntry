@@ -6,24 +6,25 @@ export default {
       spacing: { '4.5': '1.125rem', '18': '4.5rem' },
       colors: {
         // Royal indigo-blue system — mature, institutional, matches the design.
-        // Brand violet, sampled from the hero artwork.
+        // Brand blue, sampled from the logo (#002A84 navy / #0042C0 blue).
+        // Deliberately deep rather than bright — institutional, not neon.
         primary: {
-          DEFAULT: '#5121E0',
-          50: '#F3F0FF',
-          100: '#E9E3FF',
-          200: '#D5C9FF',
-          300: '#B69FFC',
-          400: '#9470F7',
-          500: '#7644F0',
-          600: '#5F2BE8',
-          700: '#5121E0',
-          800: '#3F17B4',
-          900: '#2E1088',
-          950: '#1D0A5A',
-          dark: '#2E1088',
-          hover: '#4519C4',
-          light: '#F3F0FF',
-          surface: '#F8F7FD',
+          DEFAULT: '#0F47CC',
+          50: '#EFF4FF',
+          100: '#DBE6FF',
+          200: '#BACFFF',
+          300: '#8CAEFF',
+          400: '#5585FA',
+          500: '#2C61EE',
+          600: '#1550DA',
+          700: '#0F47CC',
+          800: '#0B3BA8',
+          900: '#08307F',
+          950: '#002A7E',
+          dark: '#002A7E',
+          hover: '#0B3BA8',
+          light: '#EFF4FF',
+          surface: '#F6F8FD',
         },
         border: '#E6E8F0',
         ink: '#0E1330',
@@ -49,7 +50,7 @@ export default {
         pop: '0 16px 40px -20px rgba(53,56,205,0.35)',
       },
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(150deg, #6F3BF2 0%, #5121E0 52%, #2E1088 100%)',
+        'brand-gradient': 'linear-gradient(150deg, #2C61EE 0%, #0F47CC 52%, #002A7E 100%)',
       },
       keyframes: {
         'fade-up': { '0%': { opacity: 0, transform: 'translateY(8px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
