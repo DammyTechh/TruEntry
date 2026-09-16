@@ -45,6 +45,7 @@ const config = {
     'https://www.truentry.org',
     'http://localhost:3000',
     'http://localhost:5173',
+    'https://api.truentry.org',
   ]),
 
   db: {
