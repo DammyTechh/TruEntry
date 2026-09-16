@@ -6,10 +6,10 @@ import { useOnboarding, onboardingRouteForStep } from '../../context/OnboardingC
 function StatusError() {
   const { refresh } = useOnboarding();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F6F8FE] px-4">
-      <div className="w-full max-w-md rounded-2xl border border-[#E4E9F5] bg-white p-6 text-center shadow-card">
-        <h1 className="text-lg font-semibold text-[#0A2B72]">We couldn't check your onboarding status</h1>
-        <p className="mt-2 text-sm text-[#66799D]">Please retry before continuing.</p>
+    <div className="flex min-h-screen items-center justify-center bg-primary-surface px-4">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-white p-6 text-center shadow-card">
+        <h1 className="text-lg font-semibold text-primary-dark">We couldn't check your onboarding status</h1>
+        <p className="mt-2 text-sm text-muted">Please retry before continuing.</p>
         <Button onClick={() => refresh().catch(() => {})} className="mt-5">Retry</Button>
       </div>
     </div>

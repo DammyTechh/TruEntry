@@ -116,6 +116,31 @@ const updateFeeSettings = asyncHandler(async (req, res) => {
   return success(res, { message: 'Fee settings updated', data });
 });
 
+/* ----------------------------- JAMB audit ------------------------------ */
+const jambAudit = require('./jambAudit.service');
+
+// JSON preview (what the admin sees on screen before exporting).
+const jambAuditPreview = asyncHandler(async (req, res) => {
+  const q = req.validatedQuery || req.query;
+  const data = await jambAudit.build(q);
+  // Keep the payload light — the export carries the full record set.
+  return success(res, {
+    message: 'JAMB audit report',
+    data: { ...data, applicants: data.applicants.slice(0, 100), truncated: data.applicants.length > 100 },
+  });
+});
+
+// Binary export: PDF for filing, Excel for analysis.
+const jambAuditExport = asyncHandler(async (req, res) => {
+  const q = req.validatedQuery || req.query;
+  const format = q.format === 'xlsx' ? 'xlsx' : 'pdf';
+  const { buffer, filename, contentType } = await jambAudit.generate(q, format);
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Length', buffer.length);
+  return res.send(buffer);
+});
+
 module.exports = {
   dashboard,
   institutionStatus,
@@ -135,4 +160,6 @@ module.exports = {
   resendInstitutionCredentials,
   listFeeSettings,
   updateFeeSettings,
+  jambAuditPreview,
+  jambAuditExport,
 };

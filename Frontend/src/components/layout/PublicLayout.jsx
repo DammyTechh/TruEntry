@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Menu, X, ArrowRight, Mail, MapPin, Phone } from 'lucide-react';
-import { FaXTwitter, FaLinkedinIn, FaInstagram, FaFacebookF, FaGithub } from 'react-icons/fa6';
+import { FaXTwitter, FaLinkedinIn, FaInstagram, FaFacebookF } from 'react-icons/fa6';
 import Logo from '../ui/Logo';
 import BrandBackdrop from '../ui/BrandBackdrop';
 import { Button } from '../ui/Primitives';
@@ -92,7 +92,6 @@ const SOCIALS = [
   { Icon: FaLinkedinIn, href: 'https://linkedin.com', label: 'LinkedIn' },
   { Icon: FaInstagram, href: 'https://instagram.com', label: 'Instagram' },
   { Icon: FaFacebookF, href: 'https://facebook.com', label: 'Facebook' },
-  { Icon: FaGithub, href: 'https://github.com/DammyTechh/TruEntry', label: 'GitHub' },
 ];
 
 export function Footer() {
@@ -103,7 +102,7 @@ export function Footer() {
         {/* CTA band */}
         <div className="grid gap-6 border-b border-white/10 py-12 md:grid-cols-2 md:items-center">
           <div>
-            <h3 className="font-display text-2xl font-bold">Start your verified admission today.</h3>
+            <h3 className="font-display text-2xl font-bold text-white">Start your verified admission today.</h3>
             <p className="mt-2 max-w-md text-sm text-white/70">Join thousands of applicants and institutions using TruEntry for transparent, secure admissions.</p>
           </div>
           <div className="flex flex-wrap gap-3 md:justify-end">

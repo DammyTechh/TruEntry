@@ -87,16 +87,25 @@ const config = {
     publicKey: process.env.PAYSTACK_PUBLIC_KEY,
     baseUrl: process.env.PAYSTACK_BASE_URL || 'https://api.paystack.co',
     applicationFeeNgn: toInt(process.env.APPLICATION_FEE_NGN, 2500),
+    // Where Paystack returns the applicant after checkout. Must match a route
+    // in the frontend (see /payment/callback).
     callbackUrl:
       process.env.PAYSTACK_CALLBACK_URL ||
-      'https://truentry-frontend.vercel.app/payment/callback',
+      `${process.env.FRONTEND_URL || 'https://www.truentry.org'}/payment/callback`,
+    // Live keys start with sk_live_ / pk_live_.
+    isLive: String(process.env.PAYSTACK_SECRET_KEY || '').startsWith('sk_live_'),
   },
 
   dojah: {
     appId: process.env.DOJAH_APP_ID,
     secretKey: process.env.DOJAH_SECRET_KEY,
     baseUrl: process.env.DOJAH_BASE_URL || 'https://api.dojah.io',
-    mock: toBool(process.env.DOJAH_MOCK, true),
+    // Default to LIVE whenever credentials are configured, so production can
+    // never silently fall back to seeded demo records. Set DOJAH_MOCK=true to
+    // force the mock explicitly (useful in local development).
+    mock: process.env.DOJAH_MOCK !== undefined
+      ? toBool(process.env.DOJAH_MOCK, true)
+      : !(process.env.DOJAH_APP_ID && process.env.DOJAH_SECRET_KEY),
   },
 
   openai: {

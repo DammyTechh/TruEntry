@@ -55,4 +55,9 @@ const webhook = asyncHandler(async (req, res) => {
   return res.status(200).json({ received: true });
 });
 
-module.exports = { initialize, verify, listMine, getOne, webhook };
+const initializeSession = asyncHandler(async (req, res) => {
+  const data = await service.initializeSession(req.user.id, req.body.sessionId);
+  return success(res, { message: 'Payment initialized', data });
+});
+
+module.exports = { initialize, initializeSession, verify, listMine, getOne, webhook };

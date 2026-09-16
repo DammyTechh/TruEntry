@@ -51,7 +51,7 @@ export function OnboardingLayout({ step, totalSteps = 2, children }) {
 export function OnboardingPrimaryButton({ children, className = '', ...props }) {
   return (
     <button
-      className={`flex h-[55px] w-full items-center justify-center gap-2 rounded-xl bg-[#0D57E8] px-5 text-[18px] font-normal text-white transition hover:bg-[#0B4FD4] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`flex h-[55px] w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-[18px] font-normal text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
       {...props}
     >
       {children}

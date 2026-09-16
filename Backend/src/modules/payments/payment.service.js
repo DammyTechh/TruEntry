@@ -18,6 +18,8 @@ function shape(p) {
     id: p.id,
     reference: p.reference,
     applicationId: p.application_id,
+    // Present for verification (exam-processing) payments.
+    sessionId: p.session_id || null,
     userId: p.user_id,
     purpose: p.purpose,
     amountNaira: paystack.koboToNaira(p.amount_kobo),
@@ -82,6 +84,59 @@ async function initialize(userId, applicationId) {
  * Verify a transaction against Paystack and, on success, submit the application.
  * Idempotent: a second verify of an already-successful payment is a no-op.
  */
+/**
+ * Start payment for an application SESSION (the exam-processing fee that pays
+ * for credential verification). Amount comes from the session's own captured
+ * breakdown, so a later price change never alters an in-flight purchase.
+ */
+async function initializeSession(userId, sessionId) {
+  const session = await queryOne(
+    `SELECT s.*, u.email, u.full_name
+       FROM application_sessions s JOIN users u ON u.id = s.applicant_id
+      WHERE s.id = $1 AND s.applicant_id = $2`,
+    [sessionId, userId]
+  );
+  if (!session) throw ApiError.notFound('Application session not found');
+  if (session.payment_status === PAYMENT_STATUS.SUCCESS) {
+    throw ApiError.badRequest('This application has already been paid for', { code: 'ALREADY_PAID' });
+  }
+
+  let payment = await queryOne(
+    `SELECT * FROM payments WHERE session_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1`,
+    [sessionId, PAYMENT_STATUS.PENDING]
+  );
+  const ref = payment ? payment.reference : makeRef('TRU-VER');
+  const amountKobo = session.total_fee_kobo;
+
+  if (!payment) {
+    payment = await queryOne(
+      `INSERT INTO payments (reference, session_id, user_id, purpose, amount_kobo, status)
+       VALUES ($1,$2,$3,'verification',$4,$5) RETURNING *`,
+      [ref, sessionId, userId, amountKobo, PAYMENT_STATUS.PENDING]
+    );
+  }
+
+  const init = await paystack.initializeTransaction({
+    email: session.email,
+    amountKobo,
+    reference: ref,
+    metadata: {
+      sessionId,
+      userId,
+      purpose: 'verification',
+      sittingType: session.sitting_type,
+      sessionRef: session.reference,
+    },
+  });
+
+  return {
+    payment: shape(payment),
+    authorizationUrl: init.authorizationUrl,
+    accessCode: init.accessCode,
+    reference: ref,
+  };
+}
+
 async function verify(reference) {
   const payment = await queryOne('SELECT * FROM payments WHERE reference = $1', [reference]);
   if (!payment) throw ApiError.notFound('Payment not found');
@@ -111,6 +166,16 @@ async function settleSuccess(payment, result) {
       `UPDATE payments SET status = $1, channel = $2, paid_at = NOW(), raw = $3 WHERE id = $4`,
       [PAYMENT_STATUS.SUCCESS, result.channel || null, JSON.stringify(result.raw || {}), payment.id]
     );
+
+    // Verification (exam-processing) payment -> unlock the applicant session.
+    if (payment.purpose === 'verification' && payment.session_id) {
+      await client.query(
+        `UPDATE application_sessions
+            SET status = 'paid', payment_status = 'success', payment_id = $1
+          WHERE id = $2 AND status = 'pending_payment'`,
+        [payment.id, payment.session_id]
+      );
+    }
 
     if (payment.purpose === PAYMENT_PURPOSE.APPLICATION && payment.application_id) {
       const app = await client.query('SELECT * FROM applications WHERE id = $1 FOR UPDATE', [payment.application_id]);
@@ -197,4 +262,4 @@ async function getOne(userId, id, isAdmin) {
   return shape(row);
 }
 
-module.exports = { initialize, verify, handleWebhook, listMine, getOne, shape, APPLICATION_FEE_NAIRA };
+module.exports = { initialize, initializeSession, verify, handleWebhook, listMine, getOne, shape, APPLICATION_FEE_NAIRA };

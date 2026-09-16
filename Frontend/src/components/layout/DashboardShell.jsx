@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
+  FileSpreadsheet,
   Target,
   Wallet,
   LayoutDashboard, UserCircle, FileText, ListChecks, Scale, CreditCard,
@@ -24,9 +25,10 @@ const NAV_BY_ROLE = {
     { to: '/institution/applications', label: 'Applications', icon: FileText },
     { to: '/institution/quotas', label: 'Quota', icon: Target },
     { to: '/institution/decisioning', label: 'Decisioning', icon: Scale },
-    { to: '/institution/approvals', label: 'Admissions', icon: ShieldCheck },
+    { to: '/institution/admissions', label: 'Admissions', icon: ShieldCheck },
     { to: '/institution/departments', label: 'Departments', icon: Building2 },
     { to: '/institution/reports', label: 'Reports', icon: BarChart3 },
+    { to: '/institution/settings', label: 'Settings', icon: Settings },
   ],
   officer: [
     { to: '/institution', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -53,6 +55,7 @@ const NAV_BY_ROLE = {
     { to: '/admin/institutions', label: 'Institutions', icon: Building2 },
     { to: '/admin/finances', label: 'Finances', icon: CreditCard },
     { to: '/admin/fee-settings', label: 'Application fees', icon: Wallet },
+    { to: '/admin/jamb-audit', label: 'JAMB audit report', icon: FileSpreadsheet },
     { to: '/admin/audit', label: 'Audit logs', icon: ListChecks },
     { to: '/admin/mock', label: 'Mock data', icon: Settings },
   ],

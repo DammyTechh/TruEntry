@@ -14,10 +14,10 @@ const STATS = [
 
 const STEPS = [
   { icon: UserCheck, n: '01', t: 'Create your profile', d: 'Sign up and complete your applicant record in minutes.' },
-  { icon: BadgeCheck, n: '02', t: 'Verify NIN, JAMB & O-Level', d: 'Credentials confirmed against the source records.' },
-  { icon: CreditCard, n: '03', t: 'Apply & pay securely', d: 'Pick an institution and department, pay via Paystack.' },
-  { icon: GraduationCap, n: '04', t: 'Track to admission', d: 'Follow every stage through to JAMB admission.' },
-];
+  { icon: CreditCard, n: '02', t: 'Apply & pay', d: "Choose one or two O'Level sittings and pay the processing fee." },
+  { icon: BadgeCheck, n: '03', t: 'Credentials verified', d: 'Your JAMB and O\u2019Level records are checked at the source.' },
+  { icon: GraduationCap, n: '04', t: 'Pick your course', d: 'Your JAMB choices load automatically — apply and track to admission.' },
+]
 
 const FEATURES = [
   { icon: ShieldCheck, t: 'Verified at the source', d: 'NIN, JAMB and WAEC/NECO/NABTEB records checked against the issuing systems — not self-reported.' },

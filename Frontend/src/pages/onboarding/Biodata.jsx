@@ -13,7 +13,7 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 function FieldShell({ label, error, children }) {
   return (
     <label className="block min-w-0">
-      <span className="mb-3.5 block text-[15px] font-normal leading-none text-black sm:text-[16px]">{label}</span>
+      <span className="mb-3.5 block text-[15px] font-normal leading-none text-ink sm:text-[16px]">{label}</span>
       {children}
       {error && <span className="mt-1.5 block text-xs text-red-600">{error}</span>}
     </label>
@@ -21,8 +21,8 @@ function FieldShell({ label, error, children }) {
 }
 
 const fieldClass = (error) =>
-  `h-11 w-full rounded-xl border bg-white px-3 text-[16px] text-black shadow-[0_-1px_0.5px_#BBCEFF,0_1px_0.5px_#BBCEFF] outline-none transition placeholder:text-[#6B7280] focus:border-[#0D57E8] focus:ring-4 focus:ring-[#0D57E8]/10 ${
-    error ? 'border-red-500' : 'border-[#BBCEFF]'
+  `h-11 w-full rounded-xl border bg-white px-3 text-[16px] text-ink shadow-xs outline-none transition placeholder:text-muted focus:border-primary focus:ring-4 focus:ring-primary/10 ${
+    error ? 'border-red-500' : 'border-border'
   }`;
 
 function SelectField({ label, value, onChange, error, children }) {
@@ -32,7 +32,7 @@ function SelectField({ label, value, onChange, error, children }) {
         <select value={value} onChange={onChange} className={`${fieldClass(error)} appearance-none pr-10`}>
           {children}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6B7280]" strokeWidth={1.8} />
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" strokeWidth={1.8} />
       </div>
     </FieldShell>
   );
@@ -124,12 +124,16 @@ export default function BiodataStep() {
 
     setSaving(true);
     try {
+      // Record everything first, including the NIN, so nothing is lost if the
+      // identity lookup below fails. NIN verification is a live Dojah call and
+      // only the verified FLAG depends on it succeeding.
       await api.put('/profile', {
         dateOfBirth: form.dateOfBirth,
         gender: form.gender,
         stateOfOrigin: form.stateOfOrigin,
         lga: form.lga.trim(),
         location: form.location.trim(),
+        nin: form.nin.trim(),
       });
 
       let ninBypassedForTesting = false;
@@ -199,18 +203,18 @@ export default function BiodataStep() {
     <OnboardingLayout step={1}>
       <form
         onSubmit={submit}
-        className="rounded-xl border border-[#E4E9F5] bg-white px-5 py-6 sm:px-8 sm:py-7 lg:px-10"
+        className="rounded-xl border border-border bg-white px-5 py-6 sm:px-8 sm:py-7 lg:px-10"
       >
         <div>
-          <h1 className="text-[26px] font-bold leading-[30px] text-[#0A2B72] sm:text-[28px]">Biodata</h1>
-          <p className="mt-2 text-[15px] leading-5 text-[#66799D] sm:text-[16px]">Enter your personal details</p>
+          <h1 className="text-[26px] font-bold leading-[30px] text-primary-dark sm:text-[28px]">Biodata</h1>
+          <p className="mt-2 text-[15px] leading-5 text-muted sm:text-[16px]">Enter your personal details</p>
         </div>
 
-        <div className="mt-3.5 flex items-start gap-3 rounded-lg bg-[#E8F4FF] px-4 py-2.5 sm:px-5">
-          <span className="mt-0.5 flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-[#BFE2FF] text-[#0D57E8]">
+        <div className="mt-3.5 flex items-start gap-3 rounded-lg bg-primary-light px-4 py-2.5 sm:px-5">
+          <span className="mt-0.5 flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-primary-light text-primary">
             <Info className="h-[17px] w-[17px]" strokeWidth={2} />
           </span>
-          <p className="text-[12px] leading-[19px] text-[#0D57E8] sm:text-[14px] sm:leading-[19.2px]">
+          <p className="text-[12px] leading-[19px] text-primary sm:text-[14px] sm:leading-[19.2px]">
             <strong>NOTE:</strong> Please ensure all details are correct before payment. Incorrect information may invalidate your application, and corrections may incur additional charges.
           </p>
         </div>
@@ -227,20 +231,20 @@ export default function BiodataStep() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className={`flex min-h-[186px] w-full flex-col items-center justify-center rounded-lg border border-dashed bg-white px-5 py-4 text-center transition hover:bg-[#F9FBFF] ${errors.photo ? 'border-red-500' : 'border-[#0D57E8]'}`}
+            className={`flex min-h-[186px] w-full flex-col items-center justify-center rounded-lg border border-dashed bg-white px-5 py-4 text-center transition hover:bg-primary-surface ${errors.photo ? 'border-red-500' : 'border-primary'}`}
           >
             {preview ? (
-              <img src={preview} alt="Passport preview" className="mb-2 h-16 w-16 rounded-xl object-cover ring-1 ring-[#E4E9F5]" />
+              <img src={preview} alt="Passport preview" className="mb-2 h-16 w-16 rounded-xl object-cover ring-1 ring-border" />
             ) : (
-              <span className="mb-2 flex h-[47px] w-[55px] items-center justify-center rounded-lg bg-[#E8F4FF] text-[#0D57E8]">
+              <span className="mb-2 flex h-[47px] w-[55px] items-center justify-center rounded-lg bg-primary-light text-primary">
                 <CloudUpload className="h-8 w-8" strokeWidth={2} />
               </span>
             )}
-            <span className="text-[14px] font-bold text-black sm:text-[16px]">{photoLabel}</span>
-            <span className="mt-1 max-w-[310px] text-[11px] leading-4 text-black sm:text-[12px]">
+            <span className="text-[14px] font-bold text-ink sm:text-[16px]">{photoLabel}</span>
+            <span className="mt-1 max-w-[310px] text-[11px] leading-4 text-ink sm:text-[12px]">
               Upload a clear passport photo of yourself on a white background
             </span>
-            <span className="mt-2.5 rounded border border-[#E4E9F5] bg-white px-3 py-2 text-[12px] text-black">
+            <span className="mt-2.5 rounded border border-border bg-white px-3 py-2 text-[12px] text-ink">
               {preview ? 'Change file' : 'Browse files'}
             </span>
           </button>
@@ -256,7 +260,7 @@ export default function BiodataStep() {
                 onChange={set('dateOfBirth')}
                 className={`${fieldClass(errors.dateOfBirth)} pr-10`}
               />
-              <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6B7280] sm:hidden" strokeWidth={1.7} />
+              <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted sm:hidden" strokeWidth={1.7} />
             </div>
           </FieldShell>
 
@@ -287,7 +291,7 @@ export default function BiodataStep() {
                 placeholder="11 digits"
                 inputMode="numeric"
                 readOnly={p.ninVerified}
-                className={`${fieldClass(errors.nin)} ${p.ninVerified ? 'pr-10 text-[#344054]' : ''}`}
+                className={`${fieldClass(errors.nin)} ${p.ninVerified ? 'pr-10 text-ink' : ''}`}
               />
               {p.ninVerified && (
                 <span className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-green-100 text-green-700" title="NIN verified">

@@ -32,7 +32,6 @@ const SOCIALS = [
   ['X', 'https://twitter.com'],
   ['LinkedIn', 'https://linkedin.com'],
   ['Instagram', 'https://instagram.com'],
-  ['GitHub', 'https://github.com/DammyTechh/TruEntry'],
 ];
 
 /**
@@ -244,19 +243,26 @@ async function sendApplicationStatus(to, name, { institution, department, status
   return send({ to, subject: `TruEntry: Application ${pretty}`, html });
 }
 
+const PURPOSE_LABEL = {
+  verification: 'exam processing',
+  application: 'application',
+  post_utme: 'Post-UTME',
+};
+
 async function sendPaymentReceipt(to, name, { reference, amount, purpose }) {
+  const label = PURPOSE_LABEL[purpose] || String(purpose || 'application').replace(/_/g, ' ');
   const html = layout(
     'Payment received ✅',
     `<p style="margin:0 0 14px;">Hi ${name || 'there'},</p>
-     <p style="margin:0 0 6px;">We've received your ${purpose} payment. Here's your receipt:</p>
+     <p style="margin:0 0 6px;">We've received your ${label} payment. Here's your receipt:</p>
      ${infoTable([
        ['Reference', reference],
        ['Amount', '₦' + Number(amount).toLocaleString()],
-       ['Purpose', String(purpose || 'Application').replace(/_/g, ' ')],
+       ['Purpose', label.charAt(0).toUpperCase() + label.slice(1)],
        ['Status', 'Paid'],
      ])}
      <p style="color:${BRAND.muted};font-size:13px;margin:6px 0 0;">Keep this receipt for your records.</p>`,
-    { preheader: `Receipt for your ${purpose} payment — ₦${Number(amount).toLocaleString()}` }
+    { preheader: `Receipt for your ${label} payment — ₦${Number(amount).toLocaleString()}` }
   );
   return send({ to, subject: 'TruEntry payment receipt', html });
 }
@@ -346,6 +352,38 @@ async function sendInstitutionCredentials(to, { institutionName, email: loginEma
   return send({ to, subject: title, html });
 }
 
+/**
+ * Sent when an applicant's JAMB and O'Level records have been verified, or when
+ * verification could not be completed. This is the moment their institution
+ * choices become available, so it is worth telling them explicitly.
+ */
+async function sendVerificationResult(to, name, { success, jambScore, choices = 0, error }) {
+  const title = success ? 'Your credentials are verified' : 'We could not verify your credentials';
+
+  const body = success
+    ? `<p style="margin:0 0 14px;">Hi ${name || 'there'},</p>
+       <p style="margin:0 0 6px;">Your JAMB and O'Level records have been confirmed.</p>
+       ${infoTable([
+         ['JAMB score', jambScore ?? '—'],
+         ['Institution choices available', choices],
+       ])}
+       <p style="margin:14px 0 0;">Your JAMB choices are now loaded — sign in to pick a course and complete your application.</p>
+       ${button(config.urls.frontend + '/app/apply', 'Choose your course')}`
+    : `<p style="margin:0 0 14px;">Hi ${name || 'there'},</p>
+       <p style="margin:0 0 6px;">We were unable to verify your credentials with the details you supplied.</p>
+       <div style="background:${BRAND.dangerBg};border:1px solid ${BRAND.border};border-radius:12px;padding:14px 16px;margin:14px 0;color:${BRAND.text};">
+         ${error || 'The records could not be found.'}
+       </div>
+       <p style="margin:0 0 6px;">Please check your registration numbers and try again —
+          <strong>you will not be charged a second time.</strong></p>
+       ${button(config.urls.frontend + '/app/apply', 'Try again')}`;
+
+  const html = layout(title, body, {
+    preheader: success ? 'Your JAMB choices are ready.' : 'Verification could not be completed.',
+  });
+  return send({ to, subject: `TruEntry: ${title}`, html });
+}
+
 module.exports = {
   send,
   sendVerificationOtp,
@@ -358,4 +396,5 @@ module.exports = {
   sendContactMessage,
   sendCredentials,
   sendInstitutionCredentials,
+  sendVerificationResult,
 };

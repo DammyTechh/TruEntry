@@ -13,11 +13,11 @@ const QUOTE_ENDPOINT = '/payments/profile-completion/quote';
 
 function InfoBanner({ children }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg bg-[#E8F4FF] px-4 py-2.5 sm:px-5">
-      <span className="mt-0.5 flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-[#BFE2FF] text-[#0D57E8]">
+    <div className="flex items-start gap-3 rounded-lg bg-primary-light px-4 py-2.5 sm:px-5">
+      <span className="mt-0.5 flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-primary-light text-primary">
         <Info className="h-[17px] w-[17px]" strokeWidth={2} />
       </span>
-      <p className="min-w-0 text-[12px] leading-[19px] text-[#0D57E8] sm:text-[14px] sm:leading-[19.2px]">
+      <p className="min-w-0 text-[12px] leading-[19px] text-primary sm:text-[14px] sm:leading-[19.2px]">
         {children}
       </p>
     </div>
@@ -27,15 +27,15 @@ function InfoBanner({ children }) {
 function SummaryRow({ label, value, emphasized = false }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5 sm:gap-4">
-      <span className={`shrink-0 text-[15px] leading-5 text-black sm:text-[18px] ${emphasized ? 'font-medium' : ''}`}>
+      <span className={`shrink-0 text-[15px] leading-5 text-ink sm:text-[18px] ${emphasized ? 'font-medium' : ''}`}>
         {label}
       </span>
-      <span aria-hidden="true" className="min-w-4 flex-1 border-b border-dotted border-[#AEB8C8]" />
+      <span aria-hidden="true" className="min-w-4 flex-1 border-b border-dotted border-border" />
       <span
         className={`shrink-0 text-right leading-5 ${
           emphasized
-            ? 'text-[20px] font-bold text-[#0D57E8] sm:text-[24px]'
-            : 'text-[15px] text-black sm:text-[18px]'
+            ? 'text-[20px] font-bold text-primary sm:text-[24px]'
+            : 'text-[15px] text-ink sm:text-[18px]'
         }`}
       >
         {value}
@@ -185,10 +185,10 @@ export default function PaymentSummaryStep() {
 
   return (
     <OnboardingLayout step={3}>
-      <section className="rounded-xl border border-[#E4E9F5] bg-white px-5 py-6 sm:px-8 sm:py-7 lg:px-10 lg:py-[30px]">
+      <section className="rounded-xl border border-border bg-white px-5 py-6 sm:px-8 sm:py-7 lg:px-10 lg:py-[30px]">
         <div>
-          <h1 className="text-[26px] font-bold leading-[30px] text-[#0A2B72] sm:text-[28px]">Payment Summary</h1>
-          <p className="mt-2 text-[15px] leading-5 text-[#66799D] sm:text-[16px]">Review charges before making payment</p>
+          <h1 className="text-[26px] font-bold leading-[30px] text-primary-dark sm:text-[28px]">Payment Summary</h1>
+          <p className="mt-2 text-[15px] leading-5 text-muted sm:text-[16px]">Review charges before making payment</p>
         </div>
 
         <div className="mt-3.5">
@@ -223,7 +223,7 @@ export default function PaymentSummaryStep() {
             type="button"
             onClick={() => navigate('/onboarding/exam-details')}
             disabled={paying}
-            className="flex h-[55px] w-full items-center justify-center gap-2 rounded-xl border border-[#BFC4D0] bg-white px-5 text-[18px] text-black transition hover:bg-[#F9FBFF] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-[55px] w-full items-center justify-center gap-2 rounded-xl border border-border bg-white px-5 text-[18px] text-ink transition hover:bg-primary-surface disabled:cursor-not-allowed disabled:opacity-60"
           >
             <ArrowLeft className="h-6 w-6" strokeWidth={1.8} />
             Back

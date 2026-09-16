@@ -12,6 +12,8 @@ router.use('/profile', require('../modules/profile/profile.routes'));
 router.use('/institutions', require('../modules/institutions/institution.routes'));
 router.use('/policies', require('../modules/policies/policy.routes'));
 router.use('/applications', require('../modules/applications/application.routes'));
+router.use('/sessions', require('../modules/sessions/session.routes'));
+router.use('/workspace', require('../modules/institutions/workspace.routes'));
 router.use('/quotas', require('../modules/quotas/quota.routes'));
 router.use('/decisioning', require('../modules/decisioning/decisioning.routes'));
 router.use('/payments', require('../modules/payments/payment.routes'));

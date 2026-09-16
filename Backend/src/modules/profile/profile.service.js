@@ -62,6 +62,10 @@ async function updateProfile(userId, body) {
   await loadProfileRow(userId); // ensure exists
   const map = {
     entryMode: 'entry_mode',
+    // NIN is RECORDED here during onboarding; it is only marked verified by
+    // /profile/verify-nin, which calls Dojah. Recording it never sets the
+    // verified flag, so onboarding can complete without incurring a charge.
+    nin: 'nin',
     jambRegNo: 'jamb_reg_no',
     olevelExamType: 'olevel_exam_type',
     olevelRegNo: 'olevel_reg_no',

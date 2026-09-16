@@ -170,6 +170,77 @@ router.delete(
   })
 );
 
+/* ----------------------------- Admissions ------------------------------- */
+const admissions = require('./admissions.service');
+
+const applicantsQuery = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  departmentId: z.string().uuid().optional(),
+  status: z.string().optional(),
+  search: z.string().optional(),
+});
+const processSchema = z.object({
+  commit: z.boolean().optional(),
+  departmentId: z.string().uuid().optional(),
+});
+const decideSchema = z.object({
+  admit: z.boolean(),
+  note: z.string().max(500).optional(),
+});
+const switchSchema = z.object({
+  departmentId: z.string().uuid(),
+  note: z.string().max(500).optional(),
+});
+
+// Headline numbers for the Admissions screen.
+router.get('/:id/admissions/summary', asyncHandler(async (req, res) => {
+  const data = await admissions.summary(institutionId(req), req.params.id);
+  return success(res, { message: 'Admission summary', data });
+}));
+
+// Ranked applicant list for a cycle.
+router.get('/:id/admissions/applicants', validate({ query: applicantsQuery }), asyncHandler(async (req, res) => {
+  const q = req.validatedQuery || req.query;
+  const page = Number(q.page) || 1;
+  const limit = Number(q.limit) || 20;
+  const { items, total, quota } = await admissions.listApplicants(institutionId(req), req.params.id, { ...q, page, limit });
+  return paginated(res, { message: 'Applicants', data: items, total, page, limit, meta: { quota } });
+}));
+
+// Run the admission exercise. `commit: false` is a dry run that writes nothing.
+router.post('/:id/admissions/process', validate({ body: processSchema }), asyncHandler(async (req, res) => {
+  const data = await admissions.process(institutionId(req), req.params.id, req.body);
+  if (data.committed) {
+    await recordAudit({ req, action: 'admissions.process', entity: 'admission_quota', entityId: req.params.id });
+  }
+  return success(res, {
+    message: data.committed ? `${data.admitted} candidate(s) admitted` : 'Admission preview',
+    data,
+  });
+}));
+
+// Finish the exercise.
+router.post('/:id/admissions/close', asyncHandler(async (req, res) => {
+  const data = await admissions.close(institutionId(req), req.params.id);
+  await recordAudit({ req, action: 'admissions.close', entity: 'admission_quota', entityId: req.params.id });
+  return success(res, { message: 'Admission cycle finished', data });
+}));
+
+// Decide on one applicant.
+router.post('/applications/:applicationId/decide', validate({ body: decideSchema }), asyncHandler(async (req, res) => {
+  const data = await admissions.decide(institutionId(req), req.params.applicationId, req.body);
+  await recordAudit({ req, action: `admissions.${data.status}`, entity: 'application', entityId: req.params.applicationId });
+  return success(res, { message: `Applicant ${data.status}`, data });
+}));
+
+// Move an applicant to another department.
+router.post('/applications/:applicationId/switch-department', validate({ body: switchSchema }), asyncHandler(async (req, res) => {
+  const data = await admissions.switchDepartment(institutionId(req), req.params.applicationId, req.body);
+  await recordAudit({ req, action: 'admissions.switch_department', entity: 'application', entityId: req.params.applicationId });
+  return success(res, { message: `Moved to ${data.departmentName}`, data });
+}));
+
 /* --------------------------- Eligibility check -------------------------- */
 router.post(
   '/eligibility/check',

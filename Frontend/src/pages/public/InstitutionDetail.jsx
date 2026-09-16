@@ -3,6 +3,7 @@ import { useFetch } from '../../lib/hooks';
 import { PageLoader } from '../../components/ui/Misc';
 import { Badge, Button, EmptyState } from '../../components/ui/Primitives';
 import { useAuth } from '../../context/AuthContext';
+import BrandBackdrop from '../../components/ui/BrandBackdrop';
 
 export default function InstitutionDetail() {
   const { id } = useParams();
@@ -21,7 +22,9 @@ export default function InstitutionDetail() {
   const open = inst.parameters?.admissionOpen;
 
   return (
-    <div className="container-tru py-12">
+    <div className="relative overflow-hidden">
+      <BrandBackdrop tone="light" />
+      <div className="container-tru relative py-12">
       <Link to="/institutions" className="text-sm text-muted hover:text-primary">
         ← All institutions
       </Link>
@@ -76,6 +79,7 @@ export default function InstitutionDetail() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

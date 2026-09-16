@@ -1,15 +1,18 @@
+import BrandBackdrop from '../../components/ui/BrandBackdrop';
 const STEPS = [
-  ['Create your profile', 'Sign up as an applicant and complete your biodata.'],
-  ['Verify your records', 'Confirm your NIN, JAMB score and O-Level results against source records.'],
-  ['Apply & pay', 'Choose an institution and department, accept the admission policy, and pay the application fee.'],
-  ['Institution review', 'The admission officer reviews you, runs Post-UTME where required, and recommends you.'],
-  ['Registrar approval', 'The institution head approves and forwards successful candidates to JAMB.'],
-  ['JAMB admission', 'JAMB audits and issues the final admission. Download your admission letter.'],
-];
+  ['Create your profile', 'Sign up, complete your biodata and upload your documents for record.'],
+  ['Start your application', "Choose whether you're submitting one or two O'Level sittings — two covers an extra result."],
+  ['Pay the processing fee', 'Verification is charged per result, so payment comes before your credentials are checked.'],
+  ['We verify your credentials', 'Your JAMB and O\u2019Level records are confirmed against the source systems.'],
+  ['Choose from your JAMB choices', 'The institutions and courses you picked at JAMB registration load automatically — pick one you qualify for.'],
+  ['Track to admission', 'Follow every stage through to your JAMB admission, with email updates at each step.'],
+]
 
 export default function HowItWorks() {
   return (
-    <div className="container-tru py-14">
+    <div className="relative overflow-hidden">
+      <BrandBackdrop tone="light" />
+      <div className="container-tru relative py-14">
       <h1 className="text-3xl font-bold text-primary-dark">How TruEntry works</h1>
       <p className="mt-2 max-w-2xl text-muted">
         A single, transparent pipeline from application to admission — every stage verified and auditable.
@@ -27,6 +30,7 @@ export default function HowItWorks() {
           </li>
         ))}
       </ol>
+      </div>
     </div>
   );
 }

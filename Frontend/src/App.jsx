@@ -1,4 +1,4 @@
-import { Routes, Route, Outlet } from 'react-router-dom';
+import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { ProtectedRoute, GuestRoute } from './components/ProtectedRoute';
 import { ROLES } from './lib/constants';
 
@@ -26,7 +26,6 @@ import ChangePassword from './pages/auth/ChangePassword';
 // Onboarding
 import BiodataStep from './pages/onboarding/Biodata';
 import ExamDetailsStep from './pages/onboarding/ExamDetails';
-import PaymentSummaryStep from './pages/onboarding/PaymentSummary';
 
 // Applicant
 import AppDashboard from './pages/applicant/Dashboard';
@@ -43,6 +42,8 @@ import InstApplications from './pages/institution/Applications';
 import InstApplicationDetail from './pages/institution/ApplicationDetail';
 import Decisioning from './pages/institution/Decisioning';
 import Quotas from './pages/institution/Quotas';
+import InstSettings from './pages/institution/Settings';
+import Admissions, { AdmissionDetail } from './pages/institution/Admissions';
 import QuotaBuilder from './pages/institution/QuotaBuilder';
 import Departments from './pages/institution/Departments';
 import InstReports from './pages/institution/Reports';
@@ -59,6 +60,7 @@ import AdminDashboard from './pages/admin/Dashboard';
 import AdminUsers from './pages/admin/Users';
 import AdminInstitutions from './pages/admin/Institutions';
 import AdminFeeSettings from './pages/admin/FeeSettings';
+import AdminJambAudit from './pages/admin/JambAudit';
 import AdminFinances from './pages/admin/Finances';
 import AdminAudit from './pages/admin/Audit';
 import AdminMock from './pages/admin/Mock';
@@ -148,7 +150,7 @@ export default function App() {
         {/* Payment moved to the application flow (fees are charged per
             application, and verification happens after payment). Kept as a
             redirect so old links/bookmarks never dead-end. */}
-        <Route path="payment" element={<Navigate to="/app/apply" replace />} />
+        <Route path="payment" element={<Navigate to="/app" replace />} />
       </Route>
 
       {/* Applicant portal: reachable once onboarding records are captured. */}
@@ -177,6 +179,9 @@ export default function App() {
         <Route path="quotas" element={<Quotas />} />
         <Route path="quotas/new" element={<QuotaBuilder />} />
         <Route path="quotas/:id" element={<QuotaBuilder />} />
+        <Route path="admissions" element={<Admissions />} />
+        <Route path="admissions/:id" element={<AdmissionDetail />} />
+        <Route path="settings" element={<InstSettings />} />
         <Route path="departments" element={<Departments />} />
         <Route path="reports" element={<InstReports />} />
         <Route path="approvals" element={<Approvals />} />
@@ -211,6 +216,7 @@ export default function App() {
         <Route path="institutions" element={<AdminInstitutions />} />
         <Route path="finances" element={<AdminFinances />} />
         <Route path="fee-settings" element={<AdminFeeSettings />} />
+        <Route path="jamb-audit" element={<AdminJambAudit />} />
         <Route path="audit" element={<AdminAudit />} />
         <Route path="mock" element={<AdminMock />} />
       </Route>

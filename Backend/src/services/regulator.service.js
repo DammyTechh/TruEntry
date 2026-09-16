@@ -26,8 +26,12 @@ function normalizeJamb(row) {
     gender: row.gender,
     stateOfOrigin: row.state_of_origin,
     jambScore: Number(row.jamb_score),
+    // Alias so callers can read `score` without caring about the source.
+    score: Number(row.jamb_score),
     subjects: row.subjects || [],
     examYear: row.exam_year,
+    // Institution/course choices the candidate selected when registering.
+    choices: row.choices || [],
   };
 }
 

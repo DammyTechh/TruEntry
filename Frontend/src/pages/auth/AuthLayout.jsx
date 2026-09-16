@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
-import { ShieldCheck, BadgeCheck, Lock, CheckCircle2 } from 'lucide-react';
+import { CircleCheck, ShieldCheck, LockKeyhole } from 'lucide-react';
 import Logo from '../../components/ui/Logo';
 import BrandBackdrop from '../../components/ui/BrandBackdrop';
 
 const HIGHLIGHTS = [
-  { icon: BadgeCheck, t: 'Verified records', d: 'NIN, JAMB & O-Level checked at the source.' },
-  { icon: Lock, t: 'Secure by design', d: 'Role-based access with a full audit trail.' },
+  { icon: CircleCheck, t: 'Verified records', d: 'NIN, JAMB & O-Level checked at the source.' },
+  { icon: LockKeyhole, t: 'Secure by design', d: 'Role-based access with a full audit trail.' },
   { icon: ShieldCheck, t: 'Transparent pipeline', d: 'Track every stage to admission.' },
 ];
 
@@ -23,9 +23,7 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
             <ul className="mt-8 space-y-4">
               {HIGHLIGHTS.map((h) => (
                 <li key={h.t} className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur">
-                    <h.icon className="h-5 w-5" strokeWidth={1.9} />
-                  </div>
+                  <h.icon className="mt-0.5 h-5 w-5 shrink-0 text-white/85" strokeWidth={1.6} />
                   <div>
                     <div className="font-semibold text-white">{h.t}</div>
                     <div className="text-sm text-primary-100">{h.d}</div>

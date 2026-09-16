@@ -24,11 +24,22 @@ router.get(
         environment: process.env.NODE_ENV || 'development',
         uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
         database,
+        // Explicit live/mock reporting so a misconfigured key is obvious
+        // rather than silently falling back to demo data.
         integrations: {
-          paystack: !!config.paystack.secretKey,
-          resend: !!config.mail.resendApiKey,
-          dojah: config.dojah.mock ? 'mock' : !!config.dojah.secretKey,
-          openai: config.openai.mock ? 'mock' : !!config.openai.apiKey,
+          paystack: !config.paystack.secretKey
+            ? 'not-configured'
+            : config.paystack.isLive
+              ? 'live'
+              : 'test',
+          paystackCallbackUrl: config.paystack.callbackUrl,
+          resend: config.mail.resendApiKey ? 'configured' : 'not-configured',
+          nin: config.dojah.mock
+            ? 'mock'
+            : config.dojah.secretKey && config.dojah.appId
+              ? 'live (dojah)'
+              : 'not-configured',
+          openai: config.openai.mock ? 'mock' : config.openai.apiKey ? 'live' : 'not-configured',
           jamb: config.regulators.jambMode,
           waec: config.regulators.waecMode,
         },

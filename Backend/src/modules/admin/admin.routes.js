@@ -112,6 +112,21 @@ router.post('/institutions', validate({ body: onboardInstitutionSchema }), c.onb
 router.get('/institutions', validate({ query: listInstitutionsQuery }), c.listOnboardedInstitutions);
 router.post('/institutions/:id/resend-credentials', c.resendInstitutionCredentials);
 
+/* ----------------------------- JAMB audit ------------------------------ */
+// Regulatory audit of an admission exercise: who applied, verified scores, the
+// category each admission was made under, and how the result compares with the
+// mandated National Merit / Catchment / ELDS allocation.
+const auditQuery = z.object({
+  institutionId: z.string().uuid().optional(),
+  quotaId: z.string().uuid().optional(),
+  status: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  format: z.enum(['pdf', 'xlsx']).optional(),
+});
+router.get('/reports/jamb-audit', validate({ query: auditQuery }), c.jambAuditPreview);
+router.get('/reports/jamb-audit/export', validate({ query: auditQuery }), c.jambAuditExport);
+
 /* ---------------------------- Fee settings ----------------------------- */
 // Application fee per institution type + second-sitting O'Level surcharge.
 router.get('/fee-settings', c.listFeeSettings);

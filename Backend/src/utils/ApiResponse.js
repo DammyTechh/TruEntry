@@ -39,12 +39,15 @@ function noContent(res) {
  * @param {number} opts.page
  * @param {number} opts.limit
  */
-function paginated(res, { message = 'Success', data = [], total = 0, page = 1, limit = 20 }) {
+function paginated(res, { message = 'Success', data = [], total = 0, page = 1, limit = 20, meta = {} }) {
   const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
   return success(res, {
     message,
     data,
     meta: {
+      // Caller-supplied context (e.g. the quota a list belongs to) is merged
+      // alongside pagination rather than discarded.
+      ...meta,
       pagination: {
         total,
         page,
