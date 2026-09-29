@@ -88,7 +88,25 @@ api.interceptors.response.use(
  */
 function endSession() {
   tokenStore.clear();
+  try {
+    // Survives the redirect so the sign-in screen can explain what happened
+    // instead of the user being bounced out with no reason given.
+    sessionStorage.setItem('tru_session_expired', '1');
+  } catch {
+    /* private mode */
+  }
   window.dispatchEvent(new Event('truentry:session-expired'));
+}
+
+/** Read-and-clear the "your session ended" flag. */
+export function consumeSessionExpired() {
+  try {
+    const had = sessionStorage.getItem('tru_session_expired');
+    sessionStorage.removeItem('tru_session_expired');
+    return had === '1';
+  } catch {
+    return false;
+  }
 }
 
 // Pull a human-readable message out of any API error.

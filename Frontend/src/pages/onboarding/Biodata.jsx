@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Check, ChevronDown, CloudUpload, Info, Loader2 } from 'lucide-react';
+import { CalendarDays, Camera, Check, ChevronDown, CloudUpload, Info, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { OnboardingLayout, OnboardingPrimaryButton } from '../../components/onboarding/OnboardingLayout';
 import { useOnboarding } from '../../context/OnboardingContext';

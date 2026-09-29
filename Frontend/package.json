@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "smoke": "vite preview --port 4173 & sleep 4 && python3 scripts/smoke-test.py; kill %1"
+    "smoke": "vite preview --port 4173 & sleep 4 && python3 scripts/smoke-test.py http://localhost:4173 \"$SMOKE_EMAIL\" \"$SMOKE_PASSWORD\"; kill %1"
   },
   "dependencies": {
     "axios": "^1.7.9",
