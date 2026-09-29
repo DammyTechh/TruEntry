@@ -6,6 +6,7 @@ import { useOnboarding } from '../../context/OnboardingContext';
 import { useToast } from '../../components/ui/Toast';
 import api, { errMessage } from '../../lib/api';
 import { NIGERIAN_STATES } from '../../lib/constants';
+import CameraCapture from '../../components/ui/CameraCapture';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -65,6 +66,7 @@ export default function BiodataStep() {
   const [preview, setPreview] = useState(p.profileImageUrl || null);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -87,8 +89,8 @@ export default function BiodataStep() {
     setErrors((current) => ({ ...current, [key]: undefined }));
   };
 
-  function chooseFile(event) {
-    const selected = event.target.files?.[0];
+  /** Accepts a File from either the picker or the live camera. */
+  function acceptPhoto(selected) {
     if (!selected) return;
     if (!ALLOWED_IMAGE_TYPES.includes(selected.type)) {
       setErrors((current) => ({ ...current, photo: 'Use a JPG, PNG or WebP image.' }));
@@ -103,6 +105,12 @@ export default function BiodataStep() {
     setFile(selected);
     setPreview(URL.createObjectURL(selected));
     setErrors((current) => ({ ...current, photo: undefined }));
+  }
+
+  function chooseFile(event) {
+    acceptPhoto(event.target.files?.[0]);
+    // Allow re-selecting the same file after a retake.
+    event.target.value = '';
   }
 
   function validate() {
@@ -228,26 +236,45 @@ export default function BiodataStep() {
             className="sr-only"
             id="passport-photo"
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className={`flex min-h-[186px] w-full flex-col items-center justify-center rounded-lg border border-dashed bg-white px-5 py-4 text-center transition hover:bg-primary-surface ${errors.photo ? 'border-red-500' : 'border-primary'}`}
+          <div
+            className={`flex min-h-[186px] w-full flex-col items-center justify-center rounded-lg border border-dashed bg-white px-5 py-5 text-center transition ${errors.photo ? 'border-red-500' : 'border-primary'}`}
           >
             {preview ? (
-              <img src={preview} alt="Passport preview" className="mb-2 h-16 w-16 rounded-xl object-cover ring-1 ring-border" />
+              <img
+                src={preview}
+                alt="Passport preview"
+                className="mb-2 h-20 w-16 rounded-lg object-cover ring-1 ring-border"
+              />
             ) : (
               <span className="mb-2 flex h-[47px] w-[55px] items-center justify-center rounded-lg bg-primary-light text-primary">
                 <CloudUpload className="h-8 w-8" strokeWidth={2} />
               </span>
             )}
+
             <span className="text-[14px] font-bold text-ink sm:text-[16px]">{photoLabel}</span>
-            <span className="mt-1 max-w-[310px] text-[11px] leading-4 text-ink sm:text-[12px]">
-              Upload a clear passport photo of yourself on a white background
+            <span className="mt-1 max-w-[320px] text-[11px] leading-4 text-muted sm:text-[12px]">
+              Upload a clear passport photo on a plain background, or take one now with your camera
             </span>
-            <span className="mt-2.5 rounded border border-border bg-white px-3 py-2 text-[12px] text-ink">
-              {preview ? 'Change file' : 'Browse files'}
-            </span>
-          </button>
+
+            <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition hover:bg-primary-surface"
+              >
+                <CloudUpload className="h-4 w-4" />
+                {preview ? 'Change file' : 'Browse files'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCameraOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-primary-hover"
+              >
+                <Camera className="h-4 w-4" />
+                {preview ? 'Retake live photo' : 'Take live photo'}
+              </button>
+            </div>
+          </div>
           {errors.photo && <p className="mt-1.5 text-xs text-red-600">{errors.photo}</p>}
         </div>
 
@@ -317,6 +344,12 @@ export default function BiodataStep() {
           </OnboardingPrimaryButton>
         </div>
       </form>
+
+      <CameraCapture
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={acceptPhoto}
+      />
     </OnboardingLayout>
   );
 }
