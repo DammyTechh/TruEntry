@@ -44,6 +44,11 @@ api.interceptors.response.use(
 
     const isAuthRoute = original?.url?.includes('/auth/login') || original?.url?.includes('/auth/refresh');
 
+    // The refresh endpoint itself rejecting means the session is over.
+    if (status === 401 && original?.url?.includes('/auth/refresh')) {
+      endSession();
+    }
+
     if (status === 401 && !original._retry && !isAuthRoute) {
       original._retry = true;
       try {
@@ -64,15 +69,27 @@ api.interceptors.response.use(
           original.headers.Authorization = `Bearer ${newToken}`;
           return api(original);
         }
+        // Refresh "succeeded" but returned no usable token. Treat it as a dead
+        // session rather than falling through — otherwise the stale token sits
+        // in storage forever, the app believes it is signed in across browser
+        // restarts, and every request keeps failing with no way out.
+        endSession();
       } catch {
-        // Refresh failed: drop the session and let the route guards redirect.
-        tokenStore.clear();
-        window.dispatchEvent(new Event('truentry:session-expired'));
+        endSession();
       }
     }
     return Promise.reject(error);
   }
 );
+
+/**
+ * Drop a dead session and tell the app, so route guards can send the user to
+ * sign in instead of leaving them on a blank or stalled screen.
+ */
+function endSession() {
+  tokenStore.clear();
+  window.dispatchEvent(new Event('truentry:session-expired'));
+}
 
 // Pull a human-readable message out of any API error.
 export function errMessage(error, fallback = 'Something went wrong. Please try again.') {
