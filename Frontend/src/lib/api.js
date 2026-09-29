@@ -1,10 +1,13 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://tru-entry.vercel.app/api/v1' || 'https://api.truentry.org/api/v1';
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://tru-entry.vercel.app/api/v1';
 
 const api = axios.create({
   baseURL: BASE_URL,
   withCredentials: true, // send/receive the httpOnly refresh cookie
+  // Without a timeout a stalled request (serverless cold start, dropped
+  // connection) never settles, and any screen waiting on it hangs forever.
+  timeout: 20000,
 });
 
 const TOKEN_KEY = 'tru_access_token';
@@ -62,10 +65,9 @@ api.interceptors.response.use(
           return api(original);
         }
       } catch {
+        // Refresh failed: drop the session and let the route guards redirect.
         tokenStore.clear();
-        if (!location.pathname.startsWith('/login')) {
-          location.href = '/login';
-        }
+        window.dispatchEvent(new Event('truentry:session-expired'));
       }
     }
     return Promise.reject(error);
@@ -74,6 +76,12 @@ api.interceptors.response.use(
 
 // Pull a human-readable message out of any API error.
 export function errMessage(error, fallback = 'Something went wrong. Please try again.') {
+  if (error?.code === 'ECONNABORTED') {
+    return 'The server took too long to respond. Please check your connection and try again.';
+  }
+  if (error?.message === 'Network Error') {
+    return 'Could not reach the server. Please check your connection.';
+  }
   return (
     error?.response?.data?.message ||
     error?.response?.data?.error?.code ||

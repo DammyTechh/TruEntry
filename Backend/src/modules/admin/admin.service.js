@@ -322,8 +322,17 @@ async function auditLogs(q) {
 /* --------------------------- Mock data mgmt ---------------------------- */
 
 async function listMock(kind, q) {
-  const table = { jamb: 'mock_jamb_records', olevel: 'mock_olevel_records', nin: 'mock_nin_records' }[kind];
-  if (!table) throw ApiError.badRequest('Invalid mock data kind');
+  // NIN is verified live through Dojah, so it has no demo dataset. Only the
+  // exam bodies (JAMB, WAEC/NECO/NABTEB) are still stubbed pending their APIs.
+  const table = { jamb: 'mock_jamb_records', olevel: 'mock_olevel_records' }[kind];
+  if (!table) {
+    throw ApiError.badRequest(
+      kind === 'nin'
+        ? 'NIN is verified live through Dojah and has no demo records'
+        : 'Invalid mock data kind',
+      { code: 'NO_DEMO_DATA' }
+    );
+  }
   const { page, limit, offset } = getPagination(q);
   const rows = await queryMany(`SELECT * FROM ${table} ORDER BY created_at DESC LIMIT $1 OFFSET $2`, [limit, offset]);
   const total = (await queryOne(`SELECT COUNT(*)::int AS t FROM ${table}`)).t;

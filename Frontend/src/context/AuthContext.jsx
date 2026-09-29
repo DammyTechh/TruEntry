@@ -10,6 +10,14 @@ export function AuthProvider({ children }) {
   // Restore the session on load if we have a token.
   useEffect(() => {
     let active = true;
+
+    // Safety net: never leave the app on a loading screen because a request
+    // stalled. If the session check has not settled in time, stop waiting —
+    // the guards will send the user to sign in rather than hanging.
+    const bail = setTimeout(() => {
+      if (active) setLoading(false);
+    }, 12000);
+
     async function restore() {
       if (!tokenStore.get()) {
         setLoading(false);
@@ -25,8 +33,19 @@ export function AuthProvider({ children }) {
       }
     }
     restore();
+
+    // A failed token refresh signals the session is gone.
+    const onExpired = () => {
+      if (!active) return;
+      setUser(null);
+      setLoading(false);
+    };
+    window.addEventListener('truentry:session-expired', onExpired);
+
     return () => {
       active = false;
+      clearTimeout(bail);
+      window.removeEventListener('truentry:session-expired', onExpired);
     };
   }, []);
 

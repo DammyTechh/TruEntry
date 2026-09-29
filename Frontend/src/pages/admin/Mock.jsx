@@ -8,21 +8,19 @@ import { NIGERIAN_STATES } from '../../lib/constants';
 import api, { errMessage } from '../../lib/api';
 
 const KINDS = [
-  { key: 'nin', label: 'NIN' },
   { key: 'jamb', label: 'JAMB' },
   { key: 'olevel', label: 'O-Level' },
 ];
 
 // Which columns to surface per kind (keys are snake_case from the DB).
 const COLUMNS = {
-  nin: ['nin', 'first_name', 'last_name', 'date_of_birth', 'gender', 'state_of_origin'],
   jamb: ['jamb_reg_no', 'full_name', 'jamb_score', 'state_of_origin', 'exam_year'],
   olevel: ['exam_type', 'reg_no', 'full_name', 'exam_year'],
 };
 
 export default function Mock() {
   const toast = useToast();
-  const [kind, setKind] = useState('nin');
+  const [kind, setKind] = useState('jamb');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -68,7 +66,7 @@ export default function Mock() {
     <div>
       <PageHeader
         title="Mock data"
-        subtitle="Seeded NIN, JAMB and O-Level records used to verify applicants in test mode."
+        subtitle="Seeded JAMB and O’Level records, used while those exam APIs are unavailable. NIN is verified live through Dojah."
         action={<Button onClick={() => setOpen(true)}>Add record</Button>}
       />
 
@@ -127,16 +125,6 @@ export default function Mock() {
 }
 
 function buildBody(kind, f) {
-  if (kind === 'nin') {
-    return {
-      nin: (f.nin || '').trim(),
-      firstName: f.firstName || undefined,
-      lastName: f.lastName || undefined,
-      dateOfBirth: f.dateOfBirth || undefined,
-      gender: f.gender || undefined,
-      stateOfOrigin: f.stateOfOrigin || undefined,
-    };
-  }
   if (kind === 'jamb') {
     return {
       jambRegNo: (f.jambRegNo || '').trim(),
@@ -165,24 +153,6 @@ function buildBody(kind, f) {
 }
 
 function MockForm({ kind, form, set, setForm }) {
-  if (kind === 'nin') {
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2"><Input label="NIN (11 digits)" value={form.nin || ''} onChange={(e) => setForm({ ...form, nin: e.target.value.replace(/\D/g, '').slice(0, 11) })} required /></div>
-        <Input label="First name" value={form.firstName || ''} onChange={set('firstName')} />
-        <Input label="Last name" value={form.lastName || ''} onChange={set('lastName')} />
-        <Input label="Date of birth" type="date" value={form.dateOfBirth || ''} onChange={set('dateOfBirth')} />
-        <Select label="Gender" value={form.gender || ''} onChange={set('gender')}>
-          <option value="">—</option><option value="male">Male</option><option value="female">Female</option>
-        </Select>
-        <div className="col-span-2">
-          <Select label="State of origin" value={form.stateOfOrigin || ''} onChange={set('stateOfOrigin')}>
-            <option value="">—</option>{NIGERIAN_STATES.map((s) => (<option key={s} value={s}>{s}</option>))}
-          </Select>
-        </div>
-      </div>
-    );
-  }
   if (kind === 'jamb') {
     return (
       <div className="grid grid-cols-2 gap-3">

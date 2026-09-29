@@ -58,19 +58,9 @@ const mockOlevelSchema = z.object({
   results: z.array(z.object({ subject: z.string(), grade: z.string() })),
   examYear: z.coerce.number().optional(),
 });
-const mockNinSchema = z.object({
-  nin: z.string().trim().regex(/^\d{11}$/),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  middleName: z.string().optional(),
-  dateOfBirth: z.string().optional(),
-  gender: z.enum(['male', 'female']).optional(),
-  stateOfOrigin: z.string().optional(),
-  phone: z.string().optional(),
-});
-
+// NIN is live (Dojah) — only the exam bodies remain stubbed.
 function mockSchemaFor(kind) {
-  return { jamb: mockJambSchema, olevel: mockOlevelSchema, nin: mockNinSchema }[kind];
+  return { jamb: mockJambSchema, olevel: mockOlevelSchema }[kind];
 }
 
 

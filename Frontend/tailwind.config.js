@@ -34,8 +34,8 @@ export default {
         danger: '#DC2626',
       },
       fontFamily: {
-        sans: ['Manrope', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Manrope', 'system-ui', 'sans-serif'],
+        sans: ['Ubuntu', 'Ubuntu Sans', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Ubuntu', 'Ubuntu Sans', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         // slightly tighter, more editorial display sizes

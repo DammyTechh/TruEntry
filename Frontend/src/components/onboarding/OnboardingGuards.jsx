@@ -52,7 +52,10 @@ export function ApplicantDashboardGate({ children }) {
   const { status, loading, error } = useOnboarding();
 
   if (loading) return <PageLoader label="Checking your account setup…" />;
-  if (error) return <StatusError />;
+  // Fail OPEN on a status error: the dashboard is read-only and the API
+  // enforces its own rules, so a transient outage must not lock the applicant
+  // out of their own account.
+  if (error) return children;
   if (!status.complete) return <Navigate to="/onboarding" replace />;
 
   return children;

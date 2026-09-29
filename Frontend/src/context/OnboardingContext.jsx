@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../lib/api';
 
 const OnboardingContext = createContext(null);
@@ -107,6 +107,9 @@ function buildStatus(profilePayload, completionPayload) {
 
 
 export function OnboardingProvider({ children }) {
+  // Safety net matching AuthContext: a stalled status request must never
+  // leave the applicant staring at a loading screen.
+  const bailTimer = useRef(null);
   const [profile, setProfile] = useState(null);
   const [completion, setCompletion] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +119,10 @@ export function OnboardingProvider({ children }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
+    // Stop waiting if the status request stalls, so the applicant is never
+    // trapped on a loading screen.
+    clearTimeout(bailTimer.current);
+    bailTimer.current = setTimeout(() => setLoading(false), 12000);
     try {
       const [profileResponse, completionResponse] = await Promise.all([
         api.get('/profile'),
@@ -131,12 +138,14 @@ export function OnboardingProvider({ children }) {
       setError(err);
       throw err;
     } finally {
+      clearTimeout(bailTimer.current);
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     refresh().catch(() => {});
+    return () => clearTimeout(bailTimer.current);
   }, [refresh]);
 
   const markDevStepComplete = useCallback((step) => {
