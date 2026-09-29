@@ -3,6 +3,18 @@ import api, { tokenStore } from '../lib/api';
 
 const AuthContext = createContext(null);
 
+/**
+ * /auth/me responds with { data: { user } } while /auth/login responds with
+ * { data: { user, tokens } }. Unwrap both here so a restored session produces
+ * exactly the same user object as a fresh sign-in — otherwise `user.role` is
+ * undefined after a reload and every role-based redirect sends the person back
+ * to the landing page.
+ */
+function unwrapUser(payload) {
+  const d = payload?.data ?? payload;
+  return d?.user ?? d ?? null;
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +37,7 @@ export function AuthProvider({ children }) {
       }
       try {
         const { data } = await api.get('/auth/me');
-        if (active) setUser(data.data);
+        if (active) setUser(unwrapUser(data));
       } catch {
         tokenStore.clear();
       } finally {
@@ -51,8 +63,9 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
-    const { user: u, tokens } = data.data;
+    const { tokens } = data.data;
     tokenStore.set(tokens.accessToken, tokens.refreshToken);
+    const u = unwrapUser(data);
     setUser(u);
     return u;
   }, []);
@@ -69,8 +82,9 @@ export function AuthProvider({ children }) {
 
   const refreshUser = useCallback(async () => {
     const { data } = await api.get('/auth/me');
-    setUser(data.data);
-    return data.data;
+    const fresh = unwrapUser(data);
+    setUser(fresh);
+    return fresh;
   }, []);
 
   const value = { user, setUser, loading, login, logout, refreshUser, isAuthed: !!user };
