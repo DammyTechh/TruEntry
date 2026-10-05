@@ -125,8 +125,8 @@ export default function JambAudit() {
             <option value="">All statuses</option>
             {STATUSES.map((st) => <option key={st} value={st}>{st.replace(/_/g, ' ')}</option>)}
           </Select>
-          <Input label="From" type="date" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
-          <Input label="To" type="date" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+          <Input label="From" type="date" style={{ minWidth: 0 }} value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+          <Input label="To" type="date" style={{ minWidth: 0 }} value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
           <div className="flex items-end">
             <Button className="w-full" onClick={run}>Run report</Button>
           </div>

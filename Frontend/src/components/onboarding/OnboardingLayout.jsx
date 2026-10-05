@@ -5,7 +5,7 @@ import BrandBackdrop from '../ui/BrandBackdrop';
 import { Button } from '../ui/Primitives';
 import { useAuth } from '../../context/AuthContext';
 
-export function OnboardingLayout({ step, totalSteps = 2, children }) {
+export function OnboardingLayout({ step, totalSteps = 3, children }) {
   const { user } = useAuth();
   const firstName = user?.fullName?.trim()?.split(/\s+/)?.[0] || 'there';
 

@@ -159,7 +159,7 @@ function MockForm({ kind, form, set, setForm }) {
         <div className="col-span-2"><Input label="JAMB reg number" value={form.jambRegNo || ''} onChange={set('jambRegNo')} required placeholder="202512345678AB" /></div>
         <div className="col-span-2"><Input label="Full name" value={form.fullName || ''} onChange={set('fullName')} required /></div>
         <Input label="JAMB score" type="number" value={form.jambScore || ''} onChange={set('jambScore')} />
-        <Input label="Date of birth" type="date" value={form.dateOfBirth || ''} onChange={set('dateOfBirth')} />
+        <Input label="Date of birth" type="date" style={{ minWidth: 0 }} value={form.dateOfBirth || ''} onChange={set('dateOfBirth')} />
         <Select label="Gender" value={form.gender || ''} onChange={set('gender')}>
           <option value="">—</option><option value="male">Male</option><option value="female">Female</option>
         </Select>

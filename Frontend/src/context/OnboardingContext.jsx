@@ -6,6 +6,7 @@ const OnboardingContext = createContext(null);
 const STEP_ROUTES = {
   1: '/onboarding/biodata',
   2: '/onboarding/exam-details',
+  3: '/onboarding/payment',
 };
 
 const DEV_PROGRESS_PREFIX = 'truentry:dev-onboarding-progress:';
@@ -24,14 +25,14 @@ function readDevCompletedThrough(userId) {
   if (!import.meta.env.DEV || typeof window === 'undefined' || !userId) return 0;
 
   const value = Number(window.localStorage.getItem(devProgressKey(userId)) || 0);
-  return Number.isFinite(value) ? Math.max(0, Math.min(2, value)) : 0;
+  return Number.isFinite(value) ? Math.max(0, Math.min(3, value)) : 0;
 }
 
 function writeDevCompletedThrough(userId, step) {
   if (!import.meta.env.DEV || typeof window === 'undefined' || !userId) return;
 
   const next = Math.max(readDevCompletedThrough(userId), Number(step) || 0);
-  window.localStorage.setItem(devProgressKey(userId), String(Math.min(2, next)));
+  window.localStorage.setItem(devProgressKey(userId), String(Math.min(3, next)));
 }
 
 function readLegacySessionBypasses() {
@@ -82,14 +83,20 @@ function buildStatus(profilePayload, completionPayload) {
     profile.jambRegNo && profile.olevelRegNo
   )) || devCompletedThrough >= 2;
 
+  // Onboarding now finishes with the exam-processing payment.
+  const paymentComplete = Boolean(firstDefined(
+    steps.payment?.complete,
+    completion.session?.paymentStatus === 'success'
+  )) || devCompletedThrough >= 3;
+
   const complete = Boolean(firstDefined(
     completion.onboardingComplete,
-    biodataComplete && examDetailsComplete
+    biodataComplete && examDetailsComplete && paymentComplete
   ));
 
-  const derivedCurrentStep = !biodataComplete ? 1 : !examDetailsComplete ? 2 : 2;
+  const derivedCurrentStep = !biodataComplete ? 1 : !examDetailsComplete ? 2 : 3;
   const backendCurrentStep = Number(completion.currentStep);
-  const currentStep = [1, 2].includes(backendCurrentStep) ? backendCurrentStep : derivedCurrentStep;
+  const currentStep = [1, 2, 3].includes(backendCurrentStep) ? backendCurrentStep : derivedCurrentStep;
 
   return {
     complete,
@@ -98,7 +105,9 @@ function buildStatus(profilePayload, completionPayload) {
     steps: {
       biodata: biodataComplete,
       examDetails: examDetailsComplete,
+      payment: paymentComplete,
     },
+    session: completion.session || null,
     verification: completion.verification || { nin: false, jamb: false, olevel: false },
     devCompletedThrough,
     legacyBypassDetected: legacyBypasses.photo || legacyBypasses.nin || legacyBypasses.olevel,

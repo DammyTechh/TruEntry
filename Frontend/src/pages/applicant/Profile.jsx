@@ -84,7 +84,7 @@ function Biodata({ p, onSaved }) {
           <option value="utme">UTME</option>
           <option value="direct_entry">Direct Entry</option>
         </Select>
-        <Input label="Date of birth" type="date" value={form.dateOfBirth} onChange={set('dateOfBirth')} />
+        <Input label="Date of birth" type="date" style={{ minWidth: 0 }} value={form.dateOfBirth} onChange={set('dateOfBirth')} />
         <Select label="Gender" value={form.gender} onChange={set('gender')}>
           <option value="">Select</option>
           <option value="male">Male</option>

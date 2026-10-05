@@ -64,7 +64,9 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
     const { tokens } = data.data;
-    tokenStore.set(tokens.accessToken, tokens.refreshToken);
+    // Only the short-lived access token is persisted; the refresh token stays
+    // in its httpOnly cookie where scripts cannot reach it.
+    tokenStore.set(tokens.accessToken);
     const u = unwrapUser(data);
     setUser(u);
     return u;

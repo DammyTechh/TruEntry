@@ -197,23 +197,40 @@ async function completion(userId) {
   };
 
   // ---------------------------------------------------------------------
-  // Onboarding contract (authoritative for the client).
+  // Onboarding is three steps and finishes with payment:
   //
-  // Onboarding captures RECORDS only. Credential verification costs money, so
-  // it happens after the application fee is paid — during the application
-  // flow, not here. Onboarding is therefore complete once the applicant has
-  // supplied their biodata/photo/NIN and their exam registration details.
+  //   1. Biodata        personal details, NIN and passport photograph
+  //   2. Exam details   JAMB number plus one or two O'Level sittings
+  //   3. Payment        the exam-processing fee, which pays for verification
+  //
+  // Verification runs once that payment settles. Later payments made from the
+  // dashboard are for re-verification or institution application fees, not for
+  // completing onboarding.
   // ---------------------------------------------------------------------
   const biodataComplete = checks.hasBiodata && checks.hasLocation && checks.hasImage && checks.hasNin;
   const examDetailsComplete = checks.hasJambRegNo && checks.hasOlevelRecord;
-  const onboardingComplete = biodataComplete && examDetailsComplete;
+
+  // The onboarding session is the first one the applicant started.
+  const session = await queryOne(
+    `SELECT id, sitting_type, status, payment_status, total_fee_kobo
+       FROM application_sessions
+      WHERE applicant_id = $1
+      ORDER BY created_at ASC
+      LIMIT 1`,
+    [userId]
+  );
+  const paymentComplete = !!session && session.payment_status === 'success';
+  const verified = !!session && session.status === 'verified';
+
+  const onboardingComplete = biodataComplete && examDetailsComplete && paymentComplete;
 
   const steps = {
     biodata: { complete: biodataComplete, order: 1 },
     examDetails: { complete: examDetailsComplete, order: 2 },
+    payment: { complete: paymentComplete, order: 3 },
   };
 
-  const currentStep = !biodataComplete ? 1 : !examDetailsComplete ? 2 : null;
+  const currentStep = !biodataComplete ? 1 : !examDetailsComplete ? 2 : !paymentComplete ? 3 : null;
 
   const done = Object.values(checks).filter(Boolean).length;
   const total = Object.keys(checks).length;
@@ -224,18 +241,27 @@ async function completion(userId) {
     currentStep,
     onboardingComplete,
     percentage: Math.round((done / total) * 100),
-    // Legacy field: "everything including verification is done".
     complete: onboardingComplete,
-    // An applicant may start an application once onboarding records exist.
-    // Verification happens after payment, inside the application flow.
+    // The dashboard opens once onboarding (including payment) is done.
     canApply: onboardingComplete,
+    session: session
+      ? {
+          id: session.id,
+          sittingType: session.sitting_type,
+          status: session.status,
+          paymentStatus: session.payment_status,
+          totalNaira: session.total_fee_kobo / 100,
+        }
+      : null,
     verification: {
       nin: !!p?.nin_verified,
       jamb: !!p?.jamb_verified,
       olevel: !!p?.olevel_verified,
+      complete: verified,
     },
   };
 }
+
 
 
 module.exports = {

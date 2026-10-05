@@ -20,7 +20,9 @@
 
   .label { @apply block text-sm font-medium text-ink mb-1.5; }
   .input {
-    @apply w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-[15px] text-ink
+    /* min-w-0 stops native controls (date, number) forcing a grid/flex parent
+       wider than the viewport on small screens. */
+    @apply w-full min-w-0 rounded-xl border border-border bg-white px-3.5 py-2.5 text-[15px] text-ink
            placeholder:text-muted/60 transition
            focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none
            disabled:bg-primary-surface disabled:text-muted;

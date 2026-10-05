@@ -22,6 +22,7 @@ import Login from './pages/auth/Login';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import ChangePassword from './pages/auth/ChangePassword';
+import PaymentSummaryStep from './pages/onboarding/PaymentSummary';
 
 // Onboarding
 import BiodataStep from './pages/onboarding/Biodata';
@@ -147,10 +148,16 @@ export default function App() {
             </OnboardingStepGate>
           }
         />
-        {/* Payment moved to the application flow (fees are charged per
-            application, and verification happens after payment). Kept as a
-            redirect so old links/bookmarks never dead-end. */}
-        <Route path="payment" element={<Navigate to="/app" replace />} />
+        {/* Payment is the final onboarding step: it pays for credential
+            verification, which runs once the payment settles. */}
+        <Route
+          path="payment"
+          element={
+            <OnboardingStepGate step={3}>
+              <PaymentSummaryStep />
+            </OnboardingStepGate>
+          }
+        />
       </Route>
 
       {/* Applicant portal: reachable once onboarding records are captured. */}

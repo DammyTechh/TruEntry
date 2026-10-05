@@ -9,7 +9,7 @@ import { naira } from '../../lib/constants';
 
 const PROFILE_COMPLETION_FEE = 20000;
 const SECOND_SITTING_FEE = 10000;
-const QUOTE_ENDPOINT = '/payments/profile-completion/quote';
+const QUOTE_ENDPOINT = '/sessions/quote';
 
 function InfoBanner({ children }) {
   return (
@@ -141,18 +141,29 @@ export default function PaymentSummaryStep() {
 
     (async () => {
       try {
+        // The server prices both options; the applicant's chosen sitting count
+        // decides which one applies.
         const response = await api.get(QUOTE_ENDPOINT);
         if (!active) return;
-        setQuote(normalizeQuote(response.data?.data, provisionalQuote));
+        const q = response.data?.data || {};
+        const chosen = sittingCount === 2 ? q.two : q.one;
+        if (!chosen) throw new Error('No quote returned');
+        setQuote({
+          sittingCount,
+          sittingType: sittingCount === 2 ? 'Two Sittings' : 'One Sitting',
+          lines: [
+            { key: 'exam-processing', label: 'Exam processing fee', amount: chosen.examProcessingNaira },
+            ...(sittingCount === 2
+              ? [{ key: 'second-sitting', label: 'Second sitting fee', amount: chosen.secondSittingNaira }]
+              : []),
+          ],
+          total: chosen.totalNaira,
+          serverVerified: true,
+        });
         setQuoteState('ready');
       } catch (error) {
         if (!active) return;
-        const status = error?.response?.status;
-        if (status !== 404 && status !== 405) {
-          // Keep the visual summary usable even if the quote service is temporarily unavailable.
-          // Payment itself remains blocked until a server-authoritative quote exists.
-          console.warn('Profile-completion quote could not be loaded:', errMessage(error));
-        }
+        console.warn('Fee quote could not be loaded:', errMessage(error));
         setQuote(provisionalQuote);
         setQuoteState('unavailable');
       }
@@ -161,18 +172,28 @@ export default function PaymentSummaryStep() {
     return () => {
       active = false;
     };
-  }, [completion, provisionalQuote, status.backendPaymentStateAvailable]);
+  }, [completion, provisionalQuote, sittingCount]);
 
   async function proceedToPayment() {
-    if (!quote.serverVerified || quoteState !== 'ready') {
-      toast.info('Profile-completion payment is waiting for the backend payment endpoint. Your details are safe, and no payment has been started.');
-      return;
-    }
-
     setPaying(true);
     try {
-      const response = await api.post('/payments/initialize', { purpose: 'profile_completion' });
-      const authorizationUrl = response.data?.data?.authorizationUrl;
+      const sittingType = sittingCount === 2 ? 'two' : 'one';
+
+      // Reuse the applicant's existing session if there is one, so a retry
+      // never creates a second charge.
+      const current = await api.get('/sessions/current').then((r) => r.data?.data).catch(() => null);
+      let session = current && current.status === 'pending_payment' ? current : null;
+
+      if (!session) {
+        const created = await api.post('/sessions', { sittingType });
+        session = created.data?.data;
+      } else if (session.sittingType !== sittingType) {
+        const updated = await api.patch(`/sessions/${session.id}/sitting-type`, { sittingType });
+        session = updated.data?.data;
+      }
+
+      const pay = await api.post('/payments/session/initialize', { sessionId: session.id });
+      const authorizationUrl = pay.data?.data?.authorizationUrl;
       if (!authorizationUrl) throw new Error('The payment gateway did not return a checkout URL.');
       window.location.assign(authorizationUrl);
     } catch (error) {
@@ -180,6 +201,7 @@ export default function PaymentSummaryStep() {
       setPaying(false);
     }
   }
+
 
   const twoSittings = quote.sittingCount === 2;
 

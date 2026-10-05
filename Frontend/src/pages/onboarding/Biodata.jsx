@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Camera, Check, ChevronDown, CloudUpload, Info, Loader2 } from 'lucide-react';
+import { Camera, Check, ChevronDown, CloudUpload, Info, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { OnboardingLayout, OnboardingPrimaryButton } from '../../components/onboarding/OnboardingLayout';
 import { useOnboarding } from '../../context/OnboardingContext';
@@ -8,7 +8,7 @@ import api, { errMessage } from '../../lib/api';
 import { NIGERIAN_STATES } from '../../lib/constants';
 import CameraCapture from '../../components/ui/CameraCapture';
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 function FieldShell({ label, error, children }) {
@@ -97,7 +97,7 @@ export default function BiodataStep() {
       return;
     }
     if (selected.size > MAX_IMAGE_SIZE) {
-      setErrors((current) => ({ ...current, photo: 'Image must be 5MB or smaller.' }));
+      setErrors((current) => ({ ...current, photo: 'Image must be 4MB or smaller.' }));
       return;
     }
 
@@ -282,12 +282,11 @@ export default function BiodataStep() {
           <FieldShell label="Date of birth" error={errors.dateOfBirth}>
             <div className="relative">
               <input
-                type="date"
+                type="date" style={{ minWidth: 0 }}
                 value={form.dateOfBirth}
                 onChange={set('dateOfBirth')}
-                className={`${fieldClass(errors.dateOfBirth)} pr-10`}
+                className={fieldClass(errors.dateOfBirth)}
               />
-              <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted sm:hidden" strokeWidth={1.7} />
             </div>
           </FieldShell>
 

@@ -15,17 +15,20 @@ function fileFilter(allowed) {
   };
 }
 
-// Profile image: images only, max 5MB.
+// Profile image: images only, max 4MB.
+// Deliberately under Vercel's ~4.5MB request-body cap — a larger file is
+// rejected by the platform before our code runs, which surfaces as an opaque
+// gateway error rather than a useful message.
 const uploadImage = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 4 * 1024 * 1024 },
   fileFilter: fileFilter(IMAGE_TYPES),
 });
 
-// Policy / documents: pdf only, max 10MB.
+// Policy / documents: pdf only, max 4MB (same platform cap as above).
 const uploadPdf = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 4 * 1024 * 1024 },
   fileFilter: fileFilter(PDF_TYPES),
 });
 

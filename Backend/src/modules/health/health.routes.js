@@ -4,6 +4,7 @@ const express = require('express');
 const asyncHandler = require('../../utils/asyncHandler');
 const { success } = require('../../utils/ApiResponse');
 const db = require('../../config/database');
+const storage = require('../../services/storage.service');
 const config = require('../../config');
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const database = await db.healthCheck().catch(() => ({ ok: false }));
+    const storageCheck = await storage.check().catch(() => ({ ok: false, reason: 'check failed' }));
     return success(res, {
       message: 'TruEntry API is healthy',
       data: {
@@ -26,6 +28,7 @@ router.get(
         database,
         // Explicit live/mock reporting so a misconfigured key is obvious
         // rather than silently falling back to demo data.
+        storage: storageCheck,
         integrations: {
           paystack: !config.paystack.secretKey
             ? 'not-configured'

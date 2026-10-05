@@ -11,20 +11,40 @@ const api = axios.create({
 });
 
 const TOKEN_KEY = 'tru_access_token';
-const REFRESH_KEY = 'tru_refresh_token';
+const LEGACY_REFRESH_KEY = 'tru_refresh_token';
 
+/**
+ * Token handling.
+ *
+ * The SHORT-LIVED access token (15 minutes) is kept in localStorage so the
+ * session survives a reload. It is necessarily readable by JavaScript — any
+ * browser app that sends `Authorization: Bearer …` has this property, and it
+ * is visible in DevTools to the person who owns the session.
+ *
+ * The LONG-LIVED refresh token (7 days) is deliberately NOT stored here. It
+ * lives only in an httpOnly cookie, which JavaScript cannot read. That way a
+ * cross-site-scripting bug could at worst leak a token that expires in
+ * minutes, never one that grants a week of access.
+ */
 export const tokenStore = {
   get: () => localStorage.getItem(TOKEN_KEY),
-  getRefresh: () => localStorage.getItem(REFRESH_KEY),
-  set: (access, refresh) => {
+  set: (access) => {
     if (access) localStorage.setItem(TOKEN_KEY, access);
-    if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
   },
   clear: () => {
     localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_KEY);
+    // Remove any refresh token left behind by an earlier build.
+    localStorage.removeItem(LEGACY_REFRESH_KEY);
   },
 };
+
+// One-off cleanup for sessions created before the refresh token moved to a
+// cookie-only model.
+try {
+  localStorage.removeItem(LEGACY_REFRESH_KEY);
+} catch {
+  /* private mode */
+}
 
 // Attach the access token to every request.
 api.interceptors.request.use((config) => {
@@ -53,11 +73,13 @@ api.interceptors.response.use(
       original._retry = true;
       try {
         if (!refreshing) {
+          // No body: the refresh token travels as an httpOnly cookie
+          // (withCredentials is set on this instance).
           refreshing = api
-            .post('/auth/refresh', { refreshToken: tokenStore.getRefresh() })
+            .post('/auth/refresh', {})
             .then((r) => {
               const tokens = r.data?.data?.tokens;
-              tokenStore.set(tokens?.accessToken, tokens?.refreshToken);
+              tokenStore.set(tokens?.accessToken);
               return tokens?.accessToken;
             })
             .finally(() => {

@@ -253,8 +253,8 @@ export default function QuotaBuilder() {
             <Input label="Quota name" value={form.name} onChange={set('name')} placeholder="e.g. Admissions 2026" required />
             <Input label="Total applicants" type="number" min="0" value={form.totalApplicants} onChange={set('totalApplicants')} placeholder="e.g. 2340" />
             <Input label="Cut-off mark (JAMB)" type="number" min="0" max="400" value={form.jambCutoff} onChange={set('jambCutoff')} placeholder="e.g. 200" />
-            <Input label="Application start date" type="date" value={form.applicationStart} onChange={set('applicationStart')} />
-            <Input label="Application end date" type="date" value={form.applicationEnd} onChange={set('applicationEnd')} />
+            <Input label="Application start date" type="date" style={{ minWidth: 0 }} value={form.applicationStart} onChange={set('applicationStart')} />
+            <Input label="Application end date" type="date" style={{ minWidth: 0 }} value={form.applicationEnd} onChange={set('applicationEnd')} />
             <Select label="Admission rule" value={form.admissionRule} onChange={set('admissionRule')}
                     hint="Ranking basis, in descending order">
               <option value="jamb_only">JAMB score only</option>
