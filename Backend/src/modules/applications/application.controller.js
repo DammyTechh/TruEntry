@@ -3,6 +3,7 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const { success, created, paginated } = require('../../utils/ApiResponse');
 const service = require('./application.service');
+const admissions = require('../quotas/admissions.service');
 const ApiError = require('../../utils/ApiError');
 const { ROLES } = require('../../utils/constants');
 const { recordAudit } = require('../../middleware/audit.middleware');
@@ -101,9 +102,34 @@ const forwardToJamb = asyncHandler(async (req, res) => {
   return success(res, { message: 'Application forwarded to JAMB', data });
 });
 
+/* --------------------- Change-of-course offers ------------------------- */
+// Raised when a seat remains after every applicant has been considered
+// against the course they applied for. The applicant decides — accepting
+// moves their application, declining leaves it untouched.
+
+const listChangeOffers = asyncHandler(async (req, res) => {
+  const data = await admissions.listOffersForApplicant(req.user.id);
+  return success(res, { message: 'Change-of-course offers', data });
+});
+
+const acceptChangeOffer = asyncHandler(async (req, res) => {
+  const data = await admissions.respondToChangeOffer(req.user.id, req.params.offerId, true);
+  await recordAudit({ req, action: 'application.change_accepted', entity: 'application', entityId: req.params.offerId });
+  return success(res, { message: `Course changed to ${data.departmentName}`, data });
+});
+
+const declineChangeOffer = asyncHandler(async (req, res) => {
+  const data = await admissions.respondToChangeOffer(req.user.id, req.params.offerId, false);
+  await recordAudit({ req, action: 'application.change_declined', entity: 'application', entityId: req.params.offerId });
+  return success(res, { message: 'Offer declined — your original choice stands', data });
+});
+
 module.exports = {
   create,
   listMine,
+  listChangeOffers,
+  acceptChangeOffer,
+  declineChangeOffer,
   getMine,
   status,
   submitPostUtme,

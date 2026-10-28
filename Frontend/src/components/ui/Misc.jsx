@@ -22,7 +22,9 @@ export function PageLoader({ label = 'Loading…' }) {
   );
 }
 
-export function Modal({ open, onClose, title, children, footer }) {
+const MODAL_WIDTHS = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' };
+
+export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === 'Escape' && onClose?.();
@@ -33,13 +35,19 @@ export function Modal({ open, onClose, title, children, footer }) {
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="animate-fade-in relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-pop">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+      <div
+        className={`animate-fade-in relative flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-pop ${
+          MODAL_WIDTHS[size] || MODAL_WIDTHS.md
+        }`}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
           <h3 className="font-display text-base font-semibold text-ink">{title}</h3>
           <button onClick={onClose} className="rounded-lg p-1.5 text-muted transition hover:bg-primary-surface hover:text-ink" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
-        <div className="px-5 py-4">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-border bg-primary-surface/50 px-5 py-4">{footer}</div>}
+        {/* A tall form (department requirements, for instance) scrolls instead
+            of pushing its own footer off the bottom of the screen. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-primary-surface/50 px-5 py-4">{footer}</div>}
       </div>
     </div>
   );

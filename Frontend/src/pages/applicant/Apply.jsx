@@ -189,6 +189,15 @@ function PayStep({ session, quote, onChanged, busy, setBusy }) {
             corrections may incur additional charges.
           </p>
         </div>
+
+        {quote?.testMode && (
+          <div className="mt-3 flex gap-2.5 rounded-xl border border-success/30 bg-green-50 p-3.5">
+            <CheckCircle2 className="mt-0.5 h-4.5 w-4.5 shrink-0 text-success" />
+            <p className="text-sm text-ink">
+              <strong>Test mode:</strong> no money will be taken. Continuing unlocks verification straight away.
+            </p>
+          </div>
+        )}
       </Card>
 
       <Card className="h-fit p-6">
@@ -218,7 +227,7 @@ function PayStep({ session, quote, onChanged, busy, setBusy }) {
         )}
 
         <Button className="mt-5 w-full" onClick={startAndPay} loading={busy}>
-          Proceed to payment <ArrowRight className="h-4 w-4" />
+          {quote?.testMode ? 'Continue' : 'Proceed to payment'} <ArrowRight className="h-4 w-4" />
         </Button>
       </Card>
     </div>
@@ -454,10 +463,23 @@ function ChoicesStep({ session, onApplied }) {
                 </ul>
               )}
 
-              {c.eligible && c.admissionCategory && (
-                <p className="mt-3 border-t border-border pt-3 text-xs text-muted">
-                  Admission category: <strong className="text-ink">{LABELS[c.admissionCategory]}</strong>
-                </p>
+              {c.eligible && (c.admissionCategory || c.applicationFeeNaira != null) && (
+                <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-border pt-3 text-xs text-muted">
+                  {c.admissionCategory && (
+                    <span>
+                      Admission category: <strong className="text-ink">{LABELS[c.admissionCategory]}</strong>
+                    </span>
+                  )}
+                  {c.applicationFeeNaira != null && (
+                    <span>
+                      Application fee:{' '}
+                      <strong className="text-ink">₦{Number(c.applicationFeeNaira).toLocaleString()}</strong>
+                      {c.applicationFeeBreakdown?.secondSittingNaira > 0 && (
+                        <> (includes ₦{Number(c.applicationFeeBreakdown.secondSittingNaira).toLocaleString()} for your second sitting)</>
+                      )}
+                    </span>
+                  )}
+                </div>
               )}
             </Card>
           );

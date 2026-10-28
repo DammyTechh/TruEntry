@@ -105,14 +105,73 @@ function evaluate({ quota, requirements = [], choicePositions = [], applicant, d
 
   // ---- 4. O'Level requirements -----------------------------------------
   const sittings = applicant.olevelSittings || [];
-  const maxSittingsAllowed = Math.min(...requirements.map((r) => r.max_sittings ?? 2), 2);
+  const quotaMaxSittings = requirements.length
+    ? Math.min(...requirements.map((r) => r.max_sittings ?? 2), 2)
+    : 2;
+  // The department may be stricter than the institution-wide cycle.
+  const deptMaxSittings = Number(department?.max_sittings ?? 2);
+  const maxSittingsAllowed = Math.min(quotaMaxSittings, deptMaxSittings, 2);
 
   if (sittings.length > maxSittingsAllowed) {
-    reasons.push(`This institution accepts a maximum of ${maxSittingsAllowed} O'Level sitting(s).`);
+    reasons.push(
+      maxSittingsAllowed === 1
+        ? "This course accepts a single O'Level sitting only."
+        : `A maximum of ${maxSittingsAllowed} O'Level sitting(s) is accepted here.`
+    );
   }
 
   const merged = mergeSittings(sittings);
   details.olevel = { subjects: merged.length, sittings: sittings.length };
+
+  // ---- 4a. The department's own subject requirements --------------------
+  // Typed in by the institution when the course was created, so the check is
+  // course-specific rather than one rule for the whole school.
+  const deptRequirements = department?.olevel_requirements || [];
+  if (deptRequirements.length) {
+    const missing = [];
+    const belowGrade = [];
+
+    for (const req of deptRequirements) {
+      const needle = normaliseSubject(req.subject);
+      const held = merged.find(
+        (m) => normaliseSubject(m.subject) === needle || normaliseSubject(m.subject).startsWith(needle)
+      );
+      const minRank = GRADE_RANK[String(req.minimum_grade || 'C6').toUpperCase()] ?? 6;
+
+      if (!held) {
+        if (req.is_compulsory !== false) missing.push(req.subject);
+        continue;
+      }
+      if (held.rank > minRank) {
+        belowGrade.push(`${req.subject} — ${held.grade}, needs ${String(req.minimum_grade).toUpperCase()}`);
+      }
+    }
+
+    if (missing.length) {
+      reasons.push(`This course requires: ${missing.join(', ')}.`);
+    }
+    if (belowGrade.length) {
+      reasons.push(`Your grade is below this course's minimum in ${belowGrade.join('; ')}.`);
+    }
+    details.departmentRequirements = {
+      total: deptRequirements.length,
+      missing: missing.length,
+      belowGrade: belowGrade.length,
+    };
+  }
+
+  // ---- 4b. The department's own credit count ----------------------------
+  const deptMinCredits = Number(department?.min_credits ?? 0);
+  if (deptMinCredits) {
+    // Credits are passes at C6 or better, the standard Nigerian definition.
+    const deptCredits = merged.filter((m) => m.rank <= GRADE_RANK.C6).length;
+    details.departmentCredits = deptCredits;
+    if (deptCredits < deptMinCredits) {
+      reasons.push(
+        `This course requires at least ${deptMinCredits} credit(s) at C6 or better (you have ${deptCredits}).`
+      );
+    }
+  }
 
   for (const req of requirements) {
     const minRank = GRADE_RANK[String(req.minimum_grade || '').toUpperCase()] ?? 9;
@@ -171,6 +230,26 @@ async function classifyCategory(institutionId, stateOfOrigin) {
   return 'national_merit';
 }
 
+/**
+ * A department together with the O'Level requirements the institution typed
+ * in for it, so evaluate() can judge the applicant against that course.
+ */
+async function loadDepartment(institutionId, departmentId) {
+  return queryOne(
+    `SELECT d.*,
+            COALESCE((
+              SELECT json_agg(json_build_object(
+                       'subject', r.subject,
+                       'minimum_grade', r.minimum_grade,
+                       'is_compulsory', r.is_compulsory))
+                FROM department_olevel_requirements r
+               WHERE r.department_id = d.id), '[]'::json) AS olevel_requirements
+       FROM departments d
+      WHERE d.id = $1 AND d.institution_id = $2`,
+    [departmentId, institutionId]
+  );
+}
+
 /** Load a quota plus everything eligibility needs, then evaluate. */
 async function checkApplicant({ institutionId, departmentId, applicant }) {
   const quota = await queryOne(
@@ -194,9 +273,7 @@ async function checkApplicant({ institutionId, departmentId, applicant }) {
     'SELECT choice_position FROM quota_choice_preferences WHERE quota_id = $1',
     [quota.id]
   );
-  const department = departmentId
-    ? await queryOne('SELECT * FROM departments WHERE id = $1 AND institution_id = $2', [departmentId, institutionId])
-    : null;
+  const department = departmentId ? await loadDepartment(institutionId, departmentId) : null;
 
   const result = evaluate({
     quota,
@@ -211,4 +288,6 @@ async function checkApplicant({ institutionId, departmentId, applicant }) {
   return { ...result, admissionCategory: category, quotaId: quota.id };
 }
 
-module.exports = { evaluate, mergeSittings, classifyCategory, checkApplicant, GRADE_RANK };
+module.exports = {
+  evaluate, mergeSittings, classifyCategory, checkApplicant, loadDepartment, GRADE_RANK,
+};

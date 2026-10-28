@@ -63,6 +63,66 @@ async function update(institutionType, { applicationFeeNaira, secondSittingFeeNa
   return shape(row);
 }
 
+/* ----------------------------------------------------------------------- */
+/* PLATFORM FEES — what the applicant pays at the onboarding checkout.       */
+/*                                                                          */
+/* These are the "sitting prices": the exam-processing fee every applicant   */
+/* pays, plus the surcharge for verifying a second O'Level sitting. They     */
+/* live in platform_fee_settings (a single row) and are what /sessions/quote */
+/* prices the checkout from, so editing them here changes what applicants    */
+/* are charged immediately.                                                  */
+/* ----------------------------------------------------------------------- */
+
+function shapePlatform(row) {
+  const exam = row?.exam_processing_fee_kobo ?? 0;
+  const second = row?.second_sitting_fee_kobo ?? 0;
+  return {
+    examProcessingFeeKobo: exam,
+    examProcessingFeeNaira: exam / 100,
+    secondSittingFeeKobo: second,
+    secondSittingFeeNaira: second / 100,
+    oneSittingTotalNaira: exam / 100,
+    twoSittingTotalNaira: (exam + second) / 100,
+    updatedAt: row?.updated_at || null,
+  };
+}
+
+async function getPlatformFees() {
+  let row = await queryOne('SELECT * FROM platform_fee_settings WHERE id = TRUE');
+  if (!row) {
+    row = await queryOne(
+      'INSERT INTO platform_fee_settings (id) VALUES (TRUE) ON CONFLICT (id) DO UPDATE SET id = TRUE RETURNING *'
+    );
+  }
+  return shapePlatform(row);
+}
+
+async function updatePlatformFees({ examProcessingFeeNaira, secondSittingFeeNaira }, adminUserId) {
+  const sets = [];
+  const params = [];
+
+  if (examProcessingFeeNaira !== undefined) {
+    params.push(Math.round(Number(examProcessingFeeNaira) * 100));
+    sets.push(`exam_processing_fee_kobo = $${params.length}`);
+  }
+  if (secondSittingFeeNaira !== undefined) {
+    params.push(Math.round(Number(secondSittingFeeNaira) * 100));
+    sets.push(`second_sitting_fee_kobo = $${params.length}`);
+  }
+  if (!sets.length) throw ApiError.badRequest('Nothing to update');
+
+  params.push(adminUserId || null);
+  sets.push(`updated_by = $${params.length}`);
+
+  // Make sure the single row exists before updating it.
+  await getPlatformFees();
+  const row = await queryOne(
+    `UPDATE platform_fee_settings SET ${sets.join(', ')} WHERE id = TRUE RETURNING *`,
+    params
+  );
+  return shapePlatform(row);
+}
+
 /**
  * Resolve the fee an applicant pays for a given institution, including the
  * second-sitting surcharge when they submit two O'Level sittings.
@@ -90,4 +150,7 @@ async function resolveFeeForInstitution(institutionId, { sittings = 1 } = {}) {
   };
 }
 
-module.exports = { list, update, resolveFeeForInstitution, TYPES };
+module.exports = {
+  list, update, resolveFeeForInstitution, TYPES,
+  getPlatformFees, updatePlatformFees,
+};

@@ -99,4 +99,42 @@
  *     responses:
  *       200: { description: Applicant moved }
  *       400: { description: Department does not belong to this institution }
+ *
+ * /quotas/{id}/admissions/change-offers:
+ *   get:
+ *     tags: [Admissions]
+ *     summary: Change-of-course offers raised by this cycle
+ *     description: >
+ *       Processing considers every applicant against the department they
+ *       actually applied to first. Seats still empty after that pass are
+ *       offered to candidates who meet that department's criteria — as an
+ *       offer the applicant must accept, never a silent move.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+ *       - { in: query, name: status, schema: { type: string, enum: [offered, accepted, declined, withdrawn, expired] } }
+ *     responses: { 200: { description: Offers } }
+ *
+ * /applications/mine/change-offers:
+ *   get:
+ *     tags: [Applications]
+ *     summary: Change-of-course offers waiting on the signed-in applicant
+ *     responses: { 200: { description: Offers } }
+ *
+ * /applications/mine/change-offers/{offerId}/accept:
+ *   post:
+ *     tags: [Applications]
+ *     summary: Accept a change of course (moves the application to the new department)
+ *     parameters: [{ in: path, name: offerId, required: true, schema: { type: string, format: uuid } }]
+ *     responses:
+ *       200: { description: Course changed }
+ *       400: { description: The offer has already been answered }
+ *
+ * /applications/mine/change-offers/{offerId}/decline:
+ *   post:
+ *     tags: [Applications]
+ *     summary: Decline a change of course (the original application is untouched)
+ *     parameters: [{ in: path, name: offerId, required: true, schema: { type: string, format: uuid } }]
+ *     responses:
+ *       200: { description: Offer declined }
+ *       400: { description: The offer has already been answered }
  */

@@ -85,6 +85,7 @@ export function AdmissionDetail() {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [switchFor, setSwitchFor] = useState(null);
+  const [changeOffers, setChangeOffers] = useState([]);
 
   const params = {};
   if (filters.departmentId) params.departmentId = filters.departmentId;
@@ -96,12 +97,14 @@ export function AdmissionDetail() {
 
   async function loadSummary() {
     try {
-      const [s, d] = await Promise.all([
+      const [s, d, o] = await Promise.all([
         api.get(`/quotas/${id}/admissions/summary`),
         api.get('/workspace/departments'),
+        api.get(`/quotas/${id}/admissions/change-offers`).catch(() => null),
       ]);
       setSummary(s.data.data);
       setDepartments(d.data.data || []);
+      setChangeOffers(o?.data?.data || []);
     } catch (err) {
       toast.error(errMessage(err));
     } finally {
@@ -258,6 +261,8 @@ export function AdmissionDetail() {
         <StatCard label="Pending" value={(summary?.pending ?? 0).toLocaleString()} icon={AlertTriangle} tone="warning" accent="text-warning" />
       </div>
 
+      <ChangeOffersPanel offers={changeOffers} />
+
       {/* Filters */}
       <div className="mb-5 grid gap-3 sm:grid-cols-[1fr,200px,200px]">
         <div className="relative">
@@ -276,6 +281,7 @@ export function AdmissionDetail() {
         <Select value={filters.status} onChange={(e) => { setFilters({ ...filters, status: e.target.value }); setPage(1); }}>
           <option value="">All statuses</option>
           <option value="submitted">Submitted</option>
+          <option value="change_offered">Course change offered</option>
           <option value="admitted">Admitted</option>
           <option value="rejected">Rejected</option>
         </Select>
@@ -313,6 +319,31 @@ export function AdmissionDetail() {
               Nothing has been saved yet. Candidates are ranked in descending order and placed against each
               department's seats, honouring the regulatory split.
             </p>
+            {preview.changeOffers?.length > 0 && (
+              <div className="rounded-xl border border-warning/40 bg-amber-50/60">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/30 px-4 py-2.5">
+                  <span className="font-semibold text-ink">Change-of-course offers</span>
+                  <span className="text-xs text-muted">{preview.changeOffers.length} candidate(s)</span>
+                </div>
+                <p className="px-4 pt-3 text-xs text-muted">
+                  Seats still open after everyone was considered against the course they applied for. These
+                  candidates meet the requirements, so they will be asked to change course — nobody is moved
+                  until they accept.
+                </p>
+                <ul className="mt-2 divide-y divide-warning/20">
+                  {preview.changeOffers.map((o) => (
+                    <li key={o.applicationId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
+                      <span className="text-ink">{o.applicantName}</span>
+                      <span className="text-muted">
+                        {o.fromDepartmentId ? '' : ''}→ <strong className="text-ink">{o.toDepartmentName}</strong>
+                        <span className="ml-2">score {o.rankingScore}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {preview.results.map((r) => (
               <div key={r.departmentId} className="rounded-xl border border-border">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-primary-surface px-4 py-2.5">
@@ -356,6 +387,76 @@ export function AdmissionDetail() {
         onDone={() => { setSwitchFor(null); refetch(); loadSummary(); }}
       />
     </div>
+  );
+}
+
+const OFFER_STATUS = {
+  offered: { label: 'Awaiting applicant', cls: 'bg-amber-50 text-warning' },
+  accepted: { label: 'Accepted', cls: 'bg-green-50 text-success' },
+  declined: { label: 'Declined', cls: 'bg-red-50 text-danger' },
+  withdrawn: { label: 'Superseded', cls: 'bg-primary-surface text-muted' },
+  expired: { label: 'Expired', cls: 'bg-primary-surface text-muted' },
+};
+
+/**
+ * The second pass of processing: seats that were still empty once every
+ * applicant had been judged against the course they actually applied to,
+ * offered to candidates who meet the alternative course's requirements.
+ */
+function ChangeOffersPanel({ offers }) {
+  if (!offers?.length) return null;
+
+  const waiting = offers.filter((o) => o.status === 'offered').length;
+
+  return (
+    <Card className="mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-warning">
+            <Shuffle className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-ink">Change-of-course offers</h3>
+            <p className="text-sm text-muted">
+              Candidates who missed out on their own course but qualify for a seat still open elsewhere.
+              Each has been asked to change course; their application only moves if they accept.
+            </p>
+          </div>
+        </div>
+        <Badge className="bg-amber-50 text-warning">{waiting} awaiting a reply</Badge>
+      </div>
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[620px] text-sm">
+          <thead className="text-left text-xs uppercase tracking-wide text-muted">
+            <tr>
+              <th className="py-2">Applicant</th>
+              <th className="py-2">Applied for</th>
+              <th className="py-2">Offered</th>
+              <th className="py-2">Score</th>
+              <th className="py-2">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {offers.map((o) => {
+              const meta = OFFER_STATUS[o.status] || OFFER_STATUS.offered;
+              return (
+                <tr key={o.id}>
+                  <td className="py-2.5">
+                    <div className="font-medium text-ink">{o.applicantName}</div>
+                    <div className="text-xs text-muted">{o.applicationReference}</div>
+                  </td>
+                  <td className="py-2.5 text-muted">{o.fromDepartmentName || '—'}</td>
+                  <td className="py-2.5 font-medium text-ink">{o.toDepartmentName}</td>
+                  <td className="py-2.5 text-muted">{o.rankingScore ?? '—'}</td>
+                  <td className="py-2.5"><Badge className={meta.cls}>{meta.label}</Badge></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 

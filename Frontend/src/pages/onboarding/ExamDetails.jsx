@@ -94,12 +94,28 @@ function SittingFields({ sitting, index, errors, onChange }) {
   );
 }
 
-function normalizeSitting(profile) {
-  return {
+/**
+ * Restore whatever the applicant recorded last time — one sitting or two —
+ * so returning to this screen never silently drops their second sitting.
+ */
+function normalizeSittings(profile) {
+  const saved = Array.isArray(profile?.olevelSittings) ? profile.olevelSittings : [];
+  const restored = saved
+    .filter((sitting) => sitting && sitting.regNo)
+    .slice(0, 2)
+    .map((sitting) => ({
+      examType: sitting.examType || 'waec',
+      regNo: sitting.regNo || '',
+      verified: Boolean(profile?.olevelVerified),
+    }));
+
+  if (restored.length) return restored;
+
+  return [{
     examType: profile?.olevelExamType || 'waec',
     regNo: profile?.olevelRegNo || '',
     verified: Boolean(profile?.olevelVerified),
-  };
+  }];
 }
 
 export default function ExamDetailsStep() {
@@ -109,7 +125,7 @@ export default function ExamDetailsStep() {
   const p = profile?.profile || {};
 
   const [jambRegNo, setJambRegNo] = useState(p.jambRegNo || '');
-  const [sittings, setSittings] = useState(() => [normalizeSitting(p)]);
+  const [sittings, setSittings] = useState(() => normalizeSittings(p));
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [serverLimitation, setServerLimitation] = useState('');
@@ -191,19 +207,31 @@ export default function ExamDetailsStep() {
     try {
       // Onboarding RECORDS exam details only — it does not verify them.
       // Verification costs money per result, so it happens after the
-      // application fee is paid, inside the application flow. Both sittings
-      // are captured here; the second is verified once paid for.
-      const firstSitting = sittings[0];
+      // exam-processing fee is paid. BOTH sittings are saved here: the number
+      // saved is what the checkout prices, which is how choosing two sittings
+      // adds the second-sitting charge on the next screen.
+      const payload = sittings.map((sitting) => ({
+        examType: sitting.examType,
+        regNo: sitting.regNo.trim(),
+      }));
+
       await api.put('/profile', {
         jambRegNo: jambRegNo.trim(),
-        olevelExamType: firstSitting.examType,
-        olevelRegNo: firstSitting.regNo.trim(),
+        olevelSittings: payload,
+        // Mirrored for older clients/queries that still read the single pair.
+        olevelExamType: payload[0].examType,
+        olevelRegNo: payload[0].regNo,
       });
 
       markDevStepComplete(2);
       await refresh();
-      toast.success('Exam details saved. You can now start an application.');
-      navigate('/app');
+      toast.success(
+        payload.length === 2
+          ? 'Two sittings saved — the second-sitting charge is on your payment summary.'
+          : 'Exam details saved.'
+      );
+      // Payment is the last onboarding step, so continue there.
+      navigate('/onboarding/payment');
     } catch (error) {
       toast.error(errMessage(error));
     } finally {

@@ -97,6 +97,31 @@ async function fromDojah(nin) {
 }
 
 /**
+ * TEMPORARY (TEST_MODE_FREE_ONBOARDING): accept a well-formed NIN without
+ * calling Dojah, so onboarding can be walked end to end without spending
+ * money on lookups. No biodata is invented — the fields Dojah would have
+ * filled are left null so nothing false is written to the profile, and the
+ * record is tagged `simulated` so test data stays identifiable.
+ *
+ * Turning the env var off restores the live lookup below; nothing else in
+ * this file changes.
+ */
+function simulated(nin) {
+  return {
+    nin,
+    firstName: null,
+    lastName: null,
+    middleName: null,
+    dateOfBirth: null,
+    gender: null,
+    phone: null,
+    stateOfOrigin: null,
+    photo: null,
+    simulated: true,
+  };
+}
+
+/**
  * Validate a NIN. Returns normalised biodata.
  * @param {string} nin - 11-digit NIN.
  */
@@ -104,6 +129,12 @@ async function validateNin(nin) {
   if (!/^\d{11}$/.test(String(nin))) {
     throw ApiError.badRequest('NIN must be exactly 11 digits', { code: 'INVALID_NIN' });
   }
+
+  if (config.testMode.freeOnboarding) {
+    logger.warn('NIN validation SIMULATED (TEST_MODE_FREE_ONBOARDING)', { mode: 'test_mode' });
+    return simulated(String(nin));
+  }
+
   const useMock = config.dojah.mock || !config.dojah.secretKey || !config.dojah.appId;
   logger.info('NIN validation requested', { mode: useMock ? 'mock' : 'dojah' });
   return useMock ? fromMock(nin) : fromDojah(nin);

@@ -13,6 +13,13 @@ router.use(authenticate);
 
 /* ------------------------------ Applicant ------------------------------ */
 router.post('/', authorize(ROLES.APPLICANT), requireVerified, validate({ body: v.createApplicationSchema }), c.create);
+
+// Change-of-course offers. Declared before '/mine/:id' so "change-offers" is
+// never read as an application id.
+router.get('/mine/change-offers', authorize(ROLES.APPLICANT), c.listChangeOffers);
+router.post('/mine/change-offers/:offerId/accept', authorize(ROLES.APPLICANT), c.acceptChangeOffer);
+router.post('/mine/change-offers/:offerId/decline', authorize(ROLES.APPLICANT), c.declineChangeOffer);
+
 router.get('/mine', authorize(ROLES.APPLICANT), validate({ query: v.listQuerySchema }), c.listMine);
 router.get('/mine/:id', authorize(ROLES.APPLICANT), c.getMine);
 router.get('/mine/:id/status', authorize(ROLES.APPLICANT), c.status);

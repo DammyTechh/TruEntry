@@ -116,6 +116,17 @@ const updateFeeSettings = asyncHandler(async (req, res) => {
   return success(res, { message: 'Fee settings updated', data });
 });
 
+/* The applicant checkout prices: exam-processing fee + second-sitting surcharge. */
+const getPlatformFees = asyncHandler(async (req, res) => {
+  const data = await feeSettings.getPlatformFees();
+  return success(res, { message: 'Applicant checkout fees', data });
+});
+
+const updatePlatformFees = asyncHandler(async (req, res) => {
+  const data = await feeSettings.updatePlatformFees(req.body, req.user.id);
+  return success(res, { message: 'Applicant checkout fees updated', data });
+});
+
 /* ----------------------------- JAMB audit ------------------------------ */
 const jambAudit = require('./jambAudit.service');
 
@@ -160,6 +171,8 @@ module.exports = {
   resendInstitutionCredentials,
   listFeeSettings,
   updateFeeSettings,
+  getPlatformFees,
+  updatePlatformFees,
   jambAuditPreview,
   jambAuditExport,
 };

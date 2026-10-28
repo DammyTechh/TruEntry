@@ -89,6 +89,12 @@ const updateFeeSchema = z.object({
   secondSittingFeeNaira: z.coerce.number().min(0).max(1000000).optional(),
   isActive: z.boolean().optional(),
 });
+const updatePlatformFeeSchema = z
+  .object({
+    examProcessingFeeNaira: z.coerce.number().min(0).max(1000000).optional(),
+    secondSittingFeeNaira: z.coerce.number().min(0).max(1000000).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'Provide at least one fee to update' });
 
 /* ----------------------------- Dashboard ------------------------------- */
 router.get('/dashboard', c.dashboard);
@@ -121,6 +127,13 @@ router.get('/reports/jamb-audit/export', validate({ query: auditQuery }), c.jamb
 // Application fee per institution type + second-sitting O'Level surcharge.
 router.get('/fee-settings', c.listFeeSettings);
 router.patch('/fee-settings/:type', validate({ body: updateFeeSchema }), c.updateFeeSettings);
+
+// The applicant checkout prices ("sitting prices"): the exam-processing fee
+// every applicant pays, plus the surcharge for a second O'Level sitting.
+// /sessions/quote reads these, so a change here shows on the applicant's
+// checkout page immediately.
+router.get('/platform-fees', c.getPlatformFees);
+router.patch('/platform-fees', validate({ body: updatePlatformFeeSchema }), c.updatePlatformFees);
 
 /* ------------------------------- Users --------------------------------- */
 router.get('/users', validate({ query: listUsersQuery }), c.listUsers);

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Wallet, Info, Save } from 'lucide-react';
+import { Wallet, Info, Save, Receipt, Layers } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, Button } from '../../components/ui/Primitives';
 import { Input } from '../../components/ui/Field';
 import { PageLoader } from '../../components/ui/Misc';
 import { useToast } from '../../components/ui/Toast';
 import api, { errMessage } from '../../lib/api';
+import { naira } from '../../lib/constants';
 
 const LABELS = {
   university: 'University',
@@ -16,22 +17,38 @@ const LABELS = {
 export default function FeeSettings() {
   const toast = useToast();
   const [rows, setRows] = useState([]);
+  const [platform, setPlatform] = useState(null);
+  const [platformDraft, setPlatformDraft] = useState({ examProcessingFeeNaira: '', secondSittingFeeNaira: '' });
+  const [savingPlatform, setSavingPlatform] = useState(false);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState({});
   const [savingType, setSavingType] = useState(null);
 
   async function load() {
     try {
-      const { data } = await api.get('/admin/fee-settings');
-      setRows(data.data || []);
+      const [typeRes, platformRes] = await Promise.all([
+        api.get('/admin/fee-settings'),
+        api.get('/admin/platform-fees'),
+      ]);
+
+      setRows(typeRes.data.data || []);
       const d = {};
-      (data.data || []).forEach((r) => {
+      (typeRes.data.data || []).forEach((r) => {
         d[r.institutionType] = {
           applicationFeeNaira: r.applicationFeeNaira,
           secondSittingFeeNaira: r.secondSittingFeeNaira,
         };
       });
       setDraft(d);
+
+      const p = platformRes.data.data || null;
+      setPlatform(p);
+      if (p) {
+        setPlatformDraft({
+          examProcessingFeeNaira: p.examProcessingFeeNaira,
+          secondSittingFeeNaira: p.secondSittingFeeNaira,
+        });
+      }
     } catch (err) {
       toast.error(errMessage(err));
     } finally {
@@ -47,11 +64,10 @@ export default function FeeSettings() {
   async function save(type) {
     setSavingType(type);
     try {
-      const body = {
+      await api.patch(`/admin/fee-settings/${type}`, {
         applicationFeeNaira: Number(draft[type].applicationFeeNaira),
         secondSittingFeeNaira: Number(draft[type].secondSittingFeeNaira),
-      };
-      await api.patch(`/admin/fee-settings/${type}`, body);
+      });
       toast.success(`${LABELS[type]} fees updated`);
       load();
     } catch (err) {
@@ -61,17 +77,106 @@ export default function FeeSettings() {
     }
   }
 
+  async function savePlatform() {
+    setSavingPlatform(true);
+    try {
+      const { data } = await api.patch('/admin/platform-fees', {
+        examProcessingFeeNaira: Number(platformDraft.examProcessingFeeNaira),
+        secondSittingFeeNaira: Number(platformDraft.secondSittingFeeNaira),
+      });
+      setPlatform(data.data);
+      toast.success('Applicant checkout fees updated');
+    } catch (err) {
+      toast.error(errMessage(err));
+    } finally {
+      setSavingPlatform(false);
+    }
+  }
+
   if (loading) return <PageLoader />;
+
+  const examFee = Number(platformDraft.examProcessingFeeNaira) || 0;
+  const secondFee = Number(platformDraft.secondSittingFeeNaira) || 0;
+  const platformDirty =
+    platform &&
+    (examFee !== platform.examProcessingFeeNaira || secondFee !== platform.secondSittingFeeNaira);
 
   return (
     <div>
-      <PageHeader title="Application fees" subtitle="Set the application fee charged per institution type." />
+      <PageHeader
+        title="Fees"
+        subtitle="Set what applicants are charged at checkout and what each institution type costs to apply to."
+      />
+
+      {/* ---------------- Applicant checkout (platform-wide) ---------------- */}
+      <Card className="mb-8">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-primary">
+            <Receipt className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-ink">Applicant checkout</h3>
+            <p className="text-sm text-muted">
+              What every applicant pays to complete onboarding. These amounts appear on the
+              applicant&apos;s payment summary as soon as you save them.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+          <Input
+            label="Exam processing fee (₦)"
+            type="number" min="0"
+            value={platformDraft.examProcessingFeeNaira ?? ''}
+            onChange={(e) => setPlatformDraft((d) => ({ ...d, examProcessingFeeNaira: e.target.value }))}
+            hint="Charged on every application, one sitting or two"
+          />
+          <Input
+            label="Second-sitting fee (₦)"
+            type="number" min="0"
+            value={platformDraft.secondSittingFeeNaira ?? ''}
+            onChange={(e) => setPlatformDraft((d) => ({ ...d, secondSittingFeeNaira: e.target.value }))}
+            hint="Added when the applicant records two O'Level sittings"
+          />
+          <Button
+            className="h-[44px] lg:w-44"
+            onClick={savePlatform}
+            loading={savingPlatform}
+            disabled={!platformDirty}
+          >
+            <Save className="h-4 w-4" /> {platformDirty ? 'Save fees' : 'Saved'}
+          </Button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <PreviewTile label="One sitting — applicant pays" value={naira(examFee)} />
+          <PreviewTile label="Two sittings — applicant pays" value={naira(examFee + secondFee)} highlight />
+        </div>
+
+        {platform?.updatedAt && (
+          <p className="mt-3 text-xs text-muted">
+            Last changed {new Date(platform.updatedAt).toLocaleString('en-NG')}
+          </p>
+        )}
+      </Card>
+
+      {/* ---------------- Application fee per institution type -------------- */}
+      <div className="mb-5 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-primary">
+          <Layers className="h-5 w-5" />
+        </div>
+        <div>
+          <h3 className="font-semibold text-ink">Institution application fees</h3>
+          <p className="text-sm text-muted">Charged when an applicant applies to an institution of that type.</p>
+        </div>
+      </div>
 
       <div className="mb-6 flex gap-3 rounded-xl border border-border bg-white p-4">
         <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <p className="text-sm text-muted">
-          Applicants pay the base fee for the institution type they apply to. Choosing <strong className="text-ink">two O'Level sittings</strong> adds
-          the second-sitting charge, which covers the extra result verification.
+          Applicants pay the base fee for the institution type they apply to. Choosing{' '}
+          <strong className="text-ink">two O&apos;Level sittings</strong> adds the second-sitting charge,
+          which covers the extra result verification.
         </p>
       </div>
 
@@ -110,7 +215,7 @@ export default function FeeSettings() {
 
               <div className="mt-4 flex items-center justify-between rounded-xl bg-primary-surface px-3.5 py-3 text-sm">
                 <span className="text-muted">Two-sitting total</span>
-                <span className="font-semibold text-ink">₦{total.toLocaleString()}</span>
+                <span className="font-semibold text-ink">{naira(total)}</span>
               </div>
 
               <Button
@@ -125,6 +230,19 @@ export default function FeeSettings() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function PreviewTile({ label, value, highlight = false }) {
+  return (
+    <div
+      className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm ${
+        highlight ? 'bg-primary-light' : 'bg-primary-surface'
+      }`}
+    >
+      <span className="text-muted">{label}</span>
+      <span className={`font-semibold ${highlight ? 'text-primary' : 'text-ink'}`}>{value}</span>
     </div>
   );
 }

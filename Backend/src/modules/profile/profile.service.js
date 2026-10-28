@@ -7,6 +7,7 @@ const regulatorService = require('../../services/regulator.service');
 const storageService = require('../../services/storage.service');
 
 function shape(user, profile) {
+  const sittings = profile ? normaliseSittings(profile) : [];
   return {
     id: user.id,
     email: user.email,
@@ -25,6 +26,11 @@ function shape(user, profile) {
           olevelRegNo: profile.olevel_reg_no,
           olevelVerified: profile.olevel_verified,
           olevelResults: profile.olevel_data ? profile.olevel_data.results : null,
+          // Every sitting the applicant recorded during onboarding (1 or 2).
+          // This is what the checkout prices, so a second sitting shows its
+          // surcharge without waiting for verification.
+          olevelSittings: sittings,
+          sittingCount: sittings.length || 1,
           dateOfBirth: profile.date_of_birth,
           gender: profile.gender,
           stateOfOrigin: profile.state_of_origin,
@@ -39,6 +45,27 @@ function shape(user, profile) {
 
 function maskNin(nin) {
   return `${nin.slice(0, 3)}****${nin.slice(-2)}`;
+}
+
+/**
+ * The O'Level sittings recorded at onboarding, normalised to
+ * [{ examType, regNo }]. Falls back to the single legacy pair for profiles
+ * created before sittings were stored as an array.
+ */
+function normaliseSittings(profile) {
+  const raw = Array.isArray(profile?.olevel_sittings) ? profile.olevel_sittings : [];
+  const out = raw
+    .filter((s) => s && (s.examType || s.exam_type) && (s.regNo || s.reg_no))
+    .slice(0, 2)
+    .map((s) => ({
+      examType: String(s.examType || s.exam_type).toLowerCase(),
+      regNo: String(s.regNo || s.reg_no).trim(),
+    }));
+  if (out.length) return out;
+  if (profile?.olevel_exam_type && profile?.olevel_reg_no) {
+    return [{ examType: profile.olevel_exam_type, regNo: profile.olevel_reg_no }];
+  }
+  return [];
 }
 
 async function loadProfileRow(userId) {
@@ -85,6 +112,27 @@ async function updateProfile(userId, body) {
       values.push(body[key]);
     }
   }
+
+  // One or two O'Level sittings, recorded (not verified) at onboarding. The
+  // first sitting is mirrored onto the legacy single-sitting columns so every
+  // existing query keeps working unchanged.
+  if (Array.isArray(body.olevelSittings)) {
+    const sittings = body.olevelSittings
+      .filter((s) => s && s.examType && s.regNo)
+      .slice(0, 2)
+      .map((s) => ({ examType: String(s.examType).toLowerCase(), regNo: String(s.regNo).trim() }));
+
+    sets.push(`olevel_sittings = $${i++}::jsonb`);
+    values.push(JSON.stringify(sittings));
+
+    if (sittings[0]) {
+      sets.push(`olevel_exam_type = $${i++}`);
+      values.push(sittings[0].examType);
+      sets.push(`olevel_reg_no = $${i++}`);
+      values.push(sittings[0].regNo);
+    }
+  }
+
   if (!sets.length) return getProfile(userId);
   values.push(userId);
   await query(
@@ -224,9 +272,14 @@ async function completion(userId) {
 
   const onboardingComplete = biodataComplete && examDetailsComplete && paymentComplete;
 
+  // How many O'Level sittings the applicant recorded on step 2. The checkout
+  // prices from this, which is what makes the second-sitting surcharge appear.
+  const sittings = normaliseSittings(p);
+  const sittingCount = Math.min(Math.max(sittings.length, 1), 2);
+
   const steps = {
     biodata: { complete: biodataComplete, order: 1 },
-    examDetails: { complete: examDetailsComplete, order: 2 },
+    examDetails: { complete: examDetailsComplete, order: 2, sittingCount },
     payment: { complete: paymentComplete, order: 3 },
   };
 
@@ -239,6 +292,8 @@ async function completion(userId) {
     checks,
     steps,
     currentStep,
+    sittingCount,
+    olevelSittings: sittings,
     onboardingComplete,
     percentage: Math.round((done / total) * 100),
     complete: onboardingComplete,

@@ -10,6 +10,7 @@ const config = require('../../config');
 const logger = require('../../config/logger');
 const { APPLICATION_STATUS, PAYMENT_STATUS, PAYMENT_PURPOSE } = require('../../utils/constants');
 const applicationService = require('../applications/application.service');
+const feeSettings = require('../admin/feeSettings.service');
 
 const APPLICATION_FEE_NAIRA = config.paystack.applicationFeeNgn || 2500;
 
@@ -50,7 +51,18 @@ async function initialize(userId, applicationId) {
     [applicationId, PAYMENT_STATUS.PENDING]
   );
   const ref = payment ? payment.reference : makeRef('TRU-PAY');
-  const amountKobo = paystack.nairaToKobo(APPLICATION_FEE_NAIRA);
+  // The amount the ADMIN set for this institution's type, not a hard-coded
+  // default. Falls back to the env value only when no fee row exists at all.
+  let amountKobo;
+  try {
+    const fee = await feeSettings.resolveFeeForInstitution(app.institution_id, {
+      sittings: app.olevel_results && app.olevel_results.length > 1 ? 2 : 1,
+    });
+    amountKobo = fee.applicationFeeKobo + fee.secondSittingFeeKobo;
+  } catch (err) {
+    logger.warn('Falling back to the default application fee', { error: err.message });
+    amountKobo = paystack.nairaToKobo(APPLICATION_FEE_NAIRA);
+  }
 
   if (!payment) {
     payment = await queryOne(
@@ -116,6 +128,33 @@ async function initializeSession(userId, sessionId) {
     );
   }
 
+  // ----------------------------------------------------------------------
+  // TEMPORARY (TEST_MODE_FREE_ONBOARDING): settle the exam-processing fee
+  // without sending the applicant to Paystack, so the flow can be tested end
+  // to end. The payment row and the session move through exactly the same
+  // states as a real charge — only the gateway round-trip is skipped — and
+  // the row is tagged channel='test_mode' so it can be told apart later.
+  // Unset the env var and the live checkout below runs again unchanged.
+  // ----------------------------------------------------------------------
+  if (config.testMode.freeOnboarding) {
+    await settleSuccess(payment, {
+      status: 'success',
+      channel: 'test_mode',
+      raw: { testMode: true, amount: amountKobo, reference: ref },
+    });
+    logger.warn('Session fee settled WITHOUT payment (TEST_MODE_FREE_ONBOARDING)', { sessionId, ref });
+    const settled = await queryOne('SELECT * FROM payments WHERE id = $1', [payment.id]);
+    return {
+      payment: shape(settled),
+      // The frontend redirects here exactly as it would after Paystack, so the
+      // callback screen and its verification step are still exercised.
+      authorizationUrl: `${config.paystack.callbackUrl}?reference=${encodeURIComponent(ref)}&testMode=1`,
+      accessCode: null,
+      reference: ref,
+      testMode: true,
+    };
+  }
+
   const init = await paystack.initializeTransaction({
     email: session.email,
     amountKobo,
@@ -146,7 +185,9 @@ async function verify(reference) {
 
   const result = await paystack.verifyTransaction(reference);
   if (result.status !== 'success') {
-    await query('UPDATE payments SET status = $1, raw = $2 WHERE id = $3', [
+    // The gateway payload is kept on `metadata` (jsonb). There is no `raw`
+    // column — writing to one made every settlement fail with 42703.
+    await query('UPDATE payments SET status = $1, metadata = $2::jsonb WHERE id = $3', [
       PAYMENT_STATUS.FAILED, JSON.stringify(result.raw || {}), payment.id,
     ]);
     throw ApiError.badRequest('Payment was not successful', { code: 'PAYMENT_FAILED', status: result.status });
@@ -163,8 +204,17 @@ async function verify(reference) {
 async function settleSuccess(payment, result) {
   await transaction(async (client) => {
     await client.query(
-      `UPDATE payments SET status = $1, channel = $2, paid_at = NOW(), raw = $3 WHERE id = $4`,
-      [PAYMENT_STATUS.SUCCESS, result.channel || null, JSON.stringify(result.raw || {}), payment.id]
+      `UPDATE payments
+          SET status = $1, channel = $2, paid_at = NOW(),
+              gateway_response = $3, metadata = $4::jsonb
+        WHERE id = $5`,
+      [
+        PAYMENT_STATUS.SUCCESS,
+        result.channel || null,
+        result.gatewayResponse || null,
+        JSON.stringify(result.raw || {}),
+        payment.id,
+      ]
     );
 
     // Verification (exam-processing) payment -> unlock the applicant session.

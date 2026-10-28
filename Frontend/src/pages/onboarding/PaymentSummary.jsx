@@ -1,5 +1,5 @@
-import { ArrowLeft, Info, Loader2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Info, Loader2, ShieldCheck } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { OnboardingLayout, OnboardingPrimaryButton } from '../../components/onboarding/OnboardingLayout';
 import { useOnboarding } from '../../context/OnboardingContext';
@@ -7,19 +7,21 @@ import { useToast } from '../../components/ui/Toast';
 import api, { errMessage } from '../../lib/api';
 import { naira } from '../../lib/constants';
 
-const PROFILE_COMPLETION_FEE = 20000;
-const SECOND_SITTING_FEE = 10000;
 const QUOTE_ENDPOINT = '/sessions/quote';
 
-function InfoBanner({ children }) {
+function InfoBanner({ children, tone = 'primary' }) {
+  const tones = {
+    primary: 'bg-primary-light text-primary',
+    success: 'bg-green-50 text-success',
+  };
   return (
-    <div className="flex items-start gap-3 rounded-lg bg-primary-light px-4 py-2.5 sm:px-5">
-      <span className="mt-0.5 flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-primary-light text-primary">
-        <Info className="h-[17px] w-[17px]" strokeWidth={2} />
+    <div className={`flex items-start gap-3 rounded-lg px-4 py-2.5 sm:px-5 ${tones[tone]}`}>
+      <span className="mt-0.5 flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full">
+        {tone === 'success'
+          ? <ShieldCheck className="h-[17px] w-[17px]" strokeWidth={2} />
+          : <Info className="h-[17px] w-[17px]" strokeWidth={2} />}
       </span>
-      <p className="min-w-0 text-[12px] leading-[19px] text-primary sm:text-[14px] sm:leading-[19.2px]">
-        {children}
-      </p>
+      <p className="min-w-0 text-[12px] leading-[19px] sm:text-[14px] sm:leading-[19.2px]">{children}</p>
     </div>
   );
 }
@@ -44,140 +46,77 @@ function SummaryRow({ label, value, emphasized = false }) {
   );
 }
 
-function getPersistedSittingCount(profile, completion) {
-  const profileSittings = Array.isArray(profile?.olevelSittings)
-    ? profile.olevelSittings.filter((sitting) => sitting && sitting.verified !== false)
-    : [];
-
-  if (profileSittings.length) return Math.min(profileSittings.length, 2);
-
-  const completionCount = Number(
-    completion?.sittingCount ??
-    completion?.olevelSittingCount ??
-    completion?.steps?.examDetails?.sittingCount
+/**
+ * How many O'Level sittings the applicant recorded on the exam-details step.
+ * The server is authoritative: /profile/completion reports it, and /profile
+ * carries the sittings themselves. Guessing is what previously made two
+ * sittings price as one.
+ */
+function recordedSittingCount(profile, completion) {
+  const fromCompletion = Number(
+    completion?.sittingCount ?? completion?.steps?.examDetails?.sittingCount
   );
-  if (completionCount === 2) return 2;
+  if (fromCompletion === 2) return 2;
+  if (fromCompletion === 1) return 1;
 
-  return profile?.olevelVerified ? 1 : 1;
-}
-
-function fallbackQuote(sittingCount) {
-  const twoSittings = sittingCount === 2;
-  return {
-    sittingCount,
-    sittingType: twoSittings ? 'Two Sittings' : 'One Sitting',
-    items: [
-      { key: 'exam-processing', label: 'Exam processing fee', amount: PROFILE_COMPLETION_FEE },
-      ...(twoSittings
-        ? [{ key: 'second-sitting', label: 'Second sitting fee', amount: SECOND_SITTING_FEE }]
-        : []),
-    ],
-    total: PROFILE_COMPLETION_FEE + (twoSittings ? SECOND_SITTING_FEE : 0),
-    serverVerified: false,
-  };
-}
-
-function normalizeQuote(payload, fallback) {
-  const source = payload?.quote || payload?.paymentQuote || payload || {};
-  const sittingCount = Number(source.sittingCount || source.olevelSittingCount || fallback.sittingCount);
-  const rawItems = Array.isArray(source.items) ? source.items : [];
-  const items = rawItems.length
-    ? rawItems.map((item, index) => ({
-        key: item.key || item.code || `item-${index}`,
-        label: item.label || item.name || 'Processing fee',
-        amount: Number(item.amount ?? item.amountNaira ?? 0),
-      }))
-    : fallback.items;
-  const total = Number(source.total ?? source.totalAmount ?? source.amountNaira ?? fallback.total);
-
-  return {
-    sittingCount: sittingCount === 2 ? 2 : 1,
-    sittingType: source.sittingType || (sittingCount === 2 ? 'Two Sittings' : 'One Sitting'),
-    items,
-    total: Number.isFinite(total) ? total : fallback.total,
-    serverVerified: true,
-  };
+  const sittings = Array.isArray(profile?.olevelSittings) ? profile.olevelSittings : [];
+  return sittings.length >= 2 ? 2 : 1;
 }
 
 export default function PaymentSummaryStep() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { profile: profilePayload, completion, status } = useOnboarding();
+  const { profile: profilePayload, completion, refresh } = useOnboarding();
   const profile = profilePayload?.profile || {};
 
   const sittingCount = useMemo(
-    () => getPersistedSittingCount(profile, completion),
+    () => recordedSittingCount(profile, completion),
     [profile, completion]
   );
-  const provisionalQuote = useMemo(() => fallbackQuote(sittingCount), [sittingCount]);
-  const [quote, setQuote] = useState(provisionalQuote);
-  const [quoteState, setQuoteState] = useState('loading'); // loading | ready | unavailable
+  const sittingKey = sittingCount === 2 ? 'two' : 'one';
+
+  const [pricing, setPricing] = useState(null);     // { one, two, testMode }
+  const [loadingQuote, setLoadingQuote] = useState(true);
+  const [quoteError, setQuoteError] = useState('');
   const [paying, setPaying] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    setQuote(provisionalQuote);
-    setQuoteState('loading');
-
-    const embeddedQuote = completion?.paymentQuote || completion?.quote || completion?.steps?.payment?.quote;
-    if (embeddedQuote) {
-      setQuote(normalizeQuote(embeddedQuote, provisionalQuote));
-      setQuoteState('ready');
-      return () => {
-        active = false;
-      };
+  const loadQuote = useCallback(async () => {
+    setLoadingQuote(true);
+    setQuoteError('');
+    try {
+      // Prices are whatever the admin set under Admin → Fees. Always ask the
+      // server: a hard-coded fallback is how a changed fee goes unnoticed.
+      const response = await api.get(QUOTE_ENDPOINT);
+      const data = response.data?.data;
+      if (!data?.one || !data?.two) throw new Error('No fee quote returned');
+      setPricing(data);
+    } catch (error) {
+      setQuoteError(errMessage(error, 'We could not load the current fees. Please try again.'));
+    } finally {
+      setLoadingQuote(false);
     }
+  }, []);
 
-    // The current backend has no Screen 3 contract yet. Avoid deliberately
-    // generating a 404 on every page load. Once /profile/completion exposes
-    // steps.payment (even as false), the frontend knows the new backend
-    // contract exists and can request its server-authoritative quote.
-    if (!status.backendPaymentStateAvailable) {
-      setQuoteState('unavailable');
-      return () => {
-        active = false;
-      };
-    }
+  useEffect(() => { loadQuote(); }, [loadQuote]);
 
-    (async () => {
-      try {
-        // The server prices both options; the applicant's chosen sitting count
-        // decides which one applies.
-        const response = await api.get(QUOTE_ENDPOINT);
-        if (!active) return;
-        const q = response.data?.data || {};
-        const chosen = sittingCount === 2 ? q.two : q.one;
-        if (!chosen) throw new Error('No quote returned');
-        setQuote({
-          sittingCount,
-          sittingType: sittingCount === 2 ? 'Two Sittings' : 'One Sitting',
-          lines: [
-            { key: 'exam-processing', label: 'Exam processing fee', amount: chosen.examProcessingNaira },
-            ...(sittingCount === 2
-              ? [{ key: 'second-sitting', label: 'Second sitting fee', amount: chosen.secondSittingNaira }]
-              : []),
-          ],
-          total: chosen.totalNaira,
-          serverVerified: true,
-        });
-        setQuoteState('ready');
-      } catch (error) {
-        if (!active) return;
-        console.warn('Fee quote could not be loaded:', errMessage(error));
-        setQuote(provisionalQuote);
-        setQuoteState('unavailable');
-      }
-    })();
+  const selected = pricing?.[sittingKey] || null;
+  const twoSittings = sittingCount === 2;
+  const testMode = !!pricing?.testMode;
 
-    return () => {
-      active = false;
-    };
-  }, [completion, provisionalQuote, sittingCount]);
+  const lines = selected
+    ? [
+        { key: 'exam-processing', label: 'Exam processing fee', amount: selected.examProcessingNaira },
+        ...(twoSittings
+          ? [{ key: 'second-sitting', label: 'Second sitting fee', amount: selected.secondSittingNaira }]
+          : []),
+      ]
+    : [];
 
   async function proceedToPayment() {
+    if (!selected) return;
     setPaying(true);
     try {
-      const sittingType = sittingCount === 2 ? 'two' : 'one';
+      const sittingType = sittingKey;
 
       // Reuse the applicant's existing session if there is one, so a retry
       // never creates a second charge.
@@ -187,7 +126,10 @@ export default function PaymentSummaryStep() {
       if (!session) {
         const created = await api.post('/sessions', { sittingType });
         session = created.data?.data;
-      } else if (session.sittingType !== sittingType) {
+      }
+      // Re-price the session against what this page is showing, so the amount
+      // charged always matches the total the applicant just read.
+      if (session.sittingType !== sittingType) {
         const updated = await api.patch(`/sessions/${session.id}/sitting-type`, { sittingType });
         session = updated.data?.data;
       }
@@ -199,11 +141,9 @@ export default function PaymentSummaryStep() {
     } catch (error) {
       toast.error(errMessage(error, 'We could not start the payment. Please try again.'));
       setPaying(false);
+      refresh().catch(() => {});
     }
   }
-
-
-  const twoSittings = quote.sittingCount === 2;
 
   return (
     <OnboardingLayout step={3}>
@@ -213,32 +153,77 @@ export default function PaymentSummaryStep() {
           <p className="mt-2 text-[15px] leading-5 text-muted sm:text-[16px]">Review charges before making payment</p>
         </div>
 
-        <div className="mt-3.5">
+        <div className="mt-3.5 space-y-3">
           <InfoBanner>
             <strong>NOTE:</strong> Please ensure all details are correct before payment. Incorrect information may invalidate your application, and corrections may incur additional charges.
           </InfoBanner>
-        </div>
 
-        <div className="mt-4 space-y-7 sm:mt-5 sm:space-y-[38px]">
-          <div className="space-y-7 sm:space-y-[38px]">
-            {quote.items.map((item) => (
-              <SummaryRow key={item.key} label={item.label} value={naira(item.amount)} />
-            ))}
-          </div>
-
-          <div className="border-t border-[#D6DCE8]" />
-
-          <div className="space-y-7 sm:space-y-[38px]">
-            <SummaryRow label="Sitting Type" value={quote.sittingType} />
-            <SummaryRow label="Total Amount" value={naira(quote.total)} emphasized />
-          </div>
-
-          {twoSittings && (
-            <InfoBanner>
-              You selected two O-Level sittings. The second-sitting processing charge has been included in your invoice.
+          {testMode && (
+            <InfoBanner tone="success">
+              <strong>Test mode:</strong> no money will be taken. Continue and your application will be
+              unlocked straight away so you can try the rest of the flow.
             </InfoBanner>
           )}
         </div>
+
+        {loadingQuote ? (
+          <div className="mt-8 flex items-center gap-3 text-[15px] text-muted">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            Loading the current fees…
+          </div>
+        ) : quoteError ? (
+          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] leading-5 text-red-800">
+            <p>{quoteError}</p>
+            <button
+              type="button"
+              onClick={loadQuote}
+              className="mt-2 font-medium text-red-900 underline underline-offset-2"
+            >
+              Try again
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-7 sm:mt-5 sm:space-y-[38px]">
+            <div className="space-y-7 sm:space-y-[38px]">
+              {lines.map((line) => (
+                <SummaryRow key={line.key} label={line.label} value={naira(line.amount)} />
+              ))}
+            </div>
+
+            <div className="border-t border-[#D6DCE8]" />
+
+            <div className="space-y-7 sm:space-y-[38px]">
+              <SummaryRow label="Sitting Type" value={twoSittings ? 'Two Sittings' : 'One Sitting'} />
+              <SummaryRow label="Total Amount" value={naira(selected.totalNaira)} emphasized />
+            </div>
+
+            {twoSittings ? (
+              <InfoBanner>
+                You recorded two O-Level sittings, so the {naira(selected.secondSittingNaira)} second-sitting
+                processing charge has been added to your invoice.{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/onboarding/exam-details')}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  Change sittings
+                </button>
+              </InfoBanner>
+            ) : (
+              <InfoBanner>
+                You recorded one O-Level sitting.{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/onboarding/exam-details')}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  Add a second sitting
+                </button>{' '}
+                to have another result verified — it adds {naira(pricing.two.secondSittingNaira)}.
+              </InfoBanner>
+            )}
+          </div>
+        )}
 
         <div className="mt-7 grid grid-cols-1 gap-3 sm:mt-8 sm:grid-cols-2 sm:gap-8">
           <button
@@ -251,12 +236,18 @@ export default function PaymentSummaryStep() {
             Back
           </button>
 
-          <OnboardingPrimaryButton type="button" onClick={proceedToPayment} disabled={paying}>
+          <OnboardingPrimaryButton
+            type="button"
+            onClick={proceedToPayment}
+            disabled={paying || loadingQuote || !selected}
+          >
             {paying ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Redirecting…
+                {testMode ? 'Continuing…' : 'Redirecting…'}
               </>
+            ) : testMode ? (
+              'Continue'
             ) : (
               'Proceed to Payment'
             )}

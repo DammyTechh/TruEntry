@@ -108,6 +108,25 @@ const config = {
       : !(process.env.DOJAH_APP_ID && process.env.DOJAH_SECRET_KEY),
   },
 
+  // ------------------------------------------------------------------------
+  // TEMPORARY TESTING SWITCH — remove the env var to restore normal behaviour.
+  //
+  // TEST_MODE_FREE_ONBOARDING=true lets a tester walk the whole applicant
+  // onboarding without spending money:
+  //   • NIN is recorded and accepted WITHOUT calling Dojah  (nin.service.js)
+  //   • the exam-processing fee settles instantly WITHOUT Paystack
+  //                                              (modules/payments/payment.service.js)
+  //
+  // Nothing else changes: the same rows are written, the same statuses are set
+  // and the same screens run, so turning the flag off puts the live NIN lookup
+  // and the live checkout straight back. Every record created this way is
+  // tagged (nin_data.simulated / payments.channel = 'test_mode') so test data
+  // can be told apart from real data afterwards.
+  // ------------------------------------------------------------------------
+  testMode: {
+    freeOnboarding: toBool(process.env.TEST_MODE_FREE_ONBOARDING, false),
+  },
+
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
@@ -148,6 +167,15 @@ function validate() {
       missing.push('JWT_ACCESS_SECRET');
     if (!config.jwt.refreshSecret || config.jwt.refreshSecret === 'dev-refresh-secret')
       missing.push('JWT_REFRESH_SECRET');
+  }
+
+  // A free-onboarding deployment must never go unnoticed.
+  if (config.testMode.freeOnboarding) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '\n[config] TEST_MODE_FREE_ONBOARDING is ON — NIN lookups are simulated and ' +
+      'the exam-processing fee is NOT charged. Unset it before going live.\n'
+    );
   }
 
   if (missing.length) {

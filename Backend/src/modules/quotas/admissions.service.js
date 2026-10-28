@@ -13,6 +13,7 @@ const { query, queryOne, transaction } = require('../../config/database');
 const ApiError = require('../../utils/ApiError');
 const logger = require('../../config/logger');
 const email = require('../../services/email.service');
+const eligibility = require('./eligibility.service');
 
 const CATEGORIES = ['national_merit', 'catchment', 'elds'];
 
@@ -238,8 +239,31 @@ async function process(institutionId, quotaId, { commit = false, departmentId } 
     });
   }
 
+  // ----------------------------------------------------------------------
+  // SECOND PASS — fill what the first pass left empty.
+  //
+  // The first pass above considers each applicant ONLY against the department
+  // they actually applied to, which is the rule the institutions asked for.
+  // That leaves two things over: departments still holding empty seats, and
+  // candidates who missed out on their own course. This pass matches the two
+  // up — but only where the candidate genuinely meets that department's
+  // requirements — and records a change-of-course OFFER. Nobody is moved
+  // silently: the applicant is notified and has to accept.
+  // ----------------------------------------------------------------------
+  const changeOffers = await buildChangeOffers({
+    quota,
+    institutionId,
+    results,
+    departments,
+  });
+
   if (!commit) {
-    return { committed: false, quota: { id: quota.id, name: quota.name, admissionRule: quota.admission_rule }, results };
+    return {
+      committed: false,
+      quota: { id: quota.id, name: quota.name, admissionRule: quota.admission_rule },
+      results,
+      changeOffers,
+    };
   }
 
   // ---- Commit: write the decisions ------------------------------------
@@ -274,8 +298,320 @@ async function process(institutionId, quotaId, { commit = false, departmentId } 
     logger.error('Admission emails failed', { error: err.message })
   );
 
-  logger.info('Admissions processed', { quotaId, admitted: admittedRows.length });
-  return { committed: true, admitted: admittedRows.length, results };
+  // Then raise the change-of-course offers for the seats still unfilled.
+  const writtenOffers = await commitChangeOffers(quota, institutionId, changeOffers);
+
+  logger.info('Admissions processed', {
+    quotaId,
+    admitted: admittedRows.length,
+    changeOffers: writtenOffers.length,
+  });
+  return {
+    committed: true,
+    admitted: admittedRows.length,
+    changeOffersRaised: writtenOffers.length,
+    results,
+    changeOffers: writtenOffers,
+  };
+}
+
+/* ------------------------------------------------------------------------ */
+/* Change-of-course offers (the second pass of processing)                   */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Work out which leftover candidates could fill the seats the first pass did
+ * not use, and in what order.
+ *
+ * Rules, in the institutions' own words:
+ *   • an applicant is considered against their applied department FIRST
+ *     (that is the first pass, above — nothing here overrides it);
+ *   • whatever quota is left over may then be filled by candidates who meet
+ *     that department's criteria;
+ *   • each of those candidates is asked to change course rather than moved.
+ *
+ * A candidate already admitted somewhere is never offered a change, and no
+ * candidate receives more than one offer per run — they are matched to the
+ * best department they qualify for, by their ranking score.
+ */
+async function buildChangeOffers({ quota, institutionId, results, departments }) {
+  // Seats the first pass did not fill, per department.
+  const vacancies = results
+    .map((r) => {
+      const dept = departments.find((d) => d.department_id === r.departmentId);
+      const used = (r.alreadyAdmitted || 0) + r.selected.length;
+      return {
+        departmentId: r.departmentId,
+        departmentName: r.departmentName,
+        remaining: Math.max(0, (dept?.allocated ?? r.allocated ?? 0) - used),
+      };
+    })
+    .filter((v) => v.remaining > 0);
+
+  if (!vacancies.length) return [];
+
+  // Everyone the first pass did not place, across the whole cycle.
+  const admittedIds = new Set(results.flatMap((r) => r.selected.map((s) => s.applicationId)));
+  const { rows: leftovers } = await query(
+    `SELECT a.*, u.full_name, u.email, p.state_of_origin, p.olevel_data
+       FROM applications a
+       JOIN users u ON u.id = a.applicant_id
+       LEFT JOIN applicant_profiles p ON p.user_id = a.applicant_id
+      WHERE a.quota_id = $1
+        AND a.status NOT IN ('admitted','rejected','not_admitted','withdrawn')`,
+    [quota.id]
+  );
+
+  const candidates = leftovers
+    .filter((c) => !admittedIds.has(c.id))
+    .map((c) => ({ ...c, _score: rankingScore(c, quota.admission_rule) }))
+    .sort((a, b) => b._score - a._score);
+
+  if (!candidates.length) return [];
+
+  const offered = new Set(); // one offer per candidate per run
+  const offers = [];
+
+  for (const vacancy of vacancies) {
+    let seatsLeft = vacancy.remaining;
+
+    for (const candidate of candidates) {
+      if (seatsLeft <= 0) break;
+      if (offered.has(candidate.id)) continue;
+      if (candidate.department_id === vacancy.departmentId) continue; // already considered
+
+      // The candidate must genuinely meet THIS department's criteria —
+      // its cut-off, its O'Level subjects, its credit and sitting rules.
+      const check = await eligibility.checkApplicant({
+        institutionId,
+        departmentId: vacancy.departmentId,
+        applicant: {
+          jambScore: candidate.jamb_score,
+          stateOfOrigin: candidate.state_of_origin,
+          choicePosition: candidate.choice_position,
+          olevelSittings: normaliseOlevel(candidate),
+        },
+      });
+      if (!check.eligible) continue;
+
+      offered.add(candidate.id);
+      seatsLeft -= 1;
+      offers.push({
+        applicationId: candidate.id,
+        applicantId: candidate.applicant_id,
+        applicantName: candidate.full_name,
+        applicantEmail: candidate.email,
+        fromDepartmentId: candidate.department_id,
+        toDepartmentId: vacancy.departmentId,
+        toDepartmentName: vacancy.departmentName,
+        rankingScore: candidate._score,
+        admissionCategory: CATEGORIES.includes(candidate.admission_category)
+          ? candidate.admission_category
+          : check.admissionCategory || 'national_merit',
+        reason: `A seat is available in ${vacancy.departmentName} and you meet its requirements.`,
+      });
+    }
+  }
+
+  return offers;
+}
+
+/** The verified O'Level sittings stored on the profile, in evaluate()'s shape. */
+function normaliseOlevel(row) {
+  const data = row.olevel_data;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(row.olevel_results)) return row.olevel_results;
+  if (data && Array.isArray(data.results)) return [{ examType: data.examType, results: data.results }];
+  return [];
+}
+
+/** Write the offers and tell each applicant. */
+async function commitChangeOffers(quota, institutionId, offers) {
+  if (!offers.length) return [];
+
+  const written = [];
+  await transaction(async (client) => {
+    for (const offer of offers) {
+      // Replace any unanswered offer for this application, so a re-run always
+      // reflects the latest seat picture rather than stacking duplicates.
+      await client.query(
+        `UPDATE admission_change_offers SET status = 'withdrawn', responded_at = NOW()
+          WHERE application_id = $1 AND status = 'offered'`,
+        [offer.applicationId]
+      );
+      const { rows } = await client.query(
+        `INSERT INTO admission_change_offers
+           (quota_id, application_id, applicant_id, institution_id,
+            from_department_id, to_department_id, ranking_score, admission_category, reason)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         RETURNING id`,
+        [
+          quota.id, offer.applicationId, offer.applicantId, institutionId,
+          offer.fromDepartmentId, offer.toDepartmentId,
+          offer.rankingScore, offer.admissionCategory, offer.reason,
+        ]
+      );
+      await client.query(
+        `UPDATE applications SET status = 'change_offered'
+          WHERE id = $1 AND status NOT IN ('admitted','rejected','not_admitted','withdrawn')`,
+        [offer.applicationId]
+      );
+      await client.query(
+        `INSERT INTO application_status_history (application_id, from_status, to_status, note)
+         VALUES ($1, NULL, 'change_offered', $2)`,
+        [offer.applicationId, `Offered a change of course to ${offer.toDepartmentName}`]
+      );
+      written.push({ ...offer, id: rows[0].id });
+    }
+  });
+
+  notifyChangeOffers(written).catch((err) =>
+    logger.error('Change-of-course emails failed', { error: err.message })
+  );
+  return written;
+}
+
+async function notifyChangeOffers(offers) {
+  for (const offer of offers) {
+    try {
+      const info = await queryOne(
+        `SELECT i.name AS institution, d.name AS from_department
+           FROM applications a
+           JOIN institutions i ON i.id = a.institution_id
+           LEFT JOIN departments d ON d.id = $2
+          WHERE a.id = $1`,
+        [offer.applicationId, offer.fromDepartmentId]
+      );
+      await email.sendCourseChangeOffer(offer.applicantEmail, offer.applicantName, {
+        institution: info?.institution,
+        fromDepartment: info?.from_department,
+        toDepartment: offer.toDepartmentName,
+        reason: offer.reason,
+      });
+    } catch (err) {
+      logger.warn('Change-of-course email failed', { applicationId: offer.applicationId, error: err.message });
+    }
+  }
+}
+
+/** Offers raised by a cycle, for the institution's Admissions screen. */
+async function listChangeOffers(institutionId, quotaId, { status } = {}) {
+  const params = [institutionId, quotaId];
+  let statusSql = '';
+  if (status) { params.push(status); statusSql = `AND o.status = $${params.length}`; }
+
+  const { rows } = await query(
+    `SELECT o.*, u.full_name, u.email,
+            df.name AS from_department_name, dt.name AS to_department_name,
+            a.reference
+       FROM admission_change_offers o
+       JOIN users u ON u.id = o.applicant_id
+       JOIN applications a ON a.id = o.application_id
+       LEFT JOIN departments df ON df.id = o.from_department_id
+       JOIN departments dt ON dt.id = o.to_department_id
+      WHERE o.institution_id = $1 AND o.quota_id = $2 ${statusSql}
+      ORDER BY o.created_at DESC`,
+    params
+  );
+  return rows.map(shapeOffer);
+}
+
+/** The offers waiting on one applicant. */
+async function listOffersForApplicant(applicantId) {
+  const { rows } = await query(
+    `SELECT o.*, u.full_name, u.email,
+            i.name AS institution_name,
+            df.name AS from_department_name, dt.name AS to_department_name,
+            a.reference
+       FROM admission_change_offers o
+       JOIN users u ON u.id = o.applicant_id
+       JOIN applications a ON a.id = o.application_id
+       JOIN institutions i ON i.id = o.institution_id
+       LEFT JOIN departments df ON df.id = o.from_department_id
+       JOIN departments dt ON dt.id = o.to_department_id
+      WHERE o.applicant_id = $1
+      ORDER BY (o.status = 'offered') DESC, o.created_at DESC`,
+    [applicantId]
+  );
+  return rows.map(shapeOffer);
+}
+
+function shapeOffer(r) {
+  return {
+    id: r.id,
+    applicationId: r.application_id,
+    applicationReference: r.reference,
+    applicantName: r.full_name,
+    applicantEmail: r.email,
+    institutionName: r.institution_name || null,
+    fromDepartmentId: r.from_department_id,
+    fromDepartmentName: r.from_department_name,
+    toDepartmentId: r.to_department_id,
+    toDepartmentName: r.to_department_name,
+    rankingScore: r.ranking_score != null ? Number(r.ranking_score) : null,
+    admissionCategory: r.admission_category,
+    reason: r.reason,
+    status: r.status,
+    respondedAt: r.responded_at,
+    createdAt: r.created_at,
+  };
+}
+
+/**
+ * The applicant answers the offer. Accepting moves the application to the new
+ * department; declining leaves it exactly where it was so the institution can
+ * still consider it in a later run.
+ */
+async function respondToChangeOffer(applicantId, offerId, accept) {
+  const offer = await queryOne(
+    'SELECT * FROM admission_change_offers WHERE id = $1 AND applicant_id = $2',
+    [offerId, applicantId]
+  );
+  if (!offer) throw ApiError.notFound('Offer not found');
+  if (offer.status !== 'offered') {
+    throw ApiError.badRequest('This offer has already been answered', { code: 'OFFER_CLOSED' });
+  }
+
+  const dept = await queryOne('SELECT name FROM departments WHERE id = $1', [offer.to_department_id]);
+
+  await transaction(async (client) => {
+    await client.query(
+      `UPDATE admission_change_offers SET status = $1, responded_at = NOW() WHERE id = $2`,
+      [accept ? 'accepted' : 'declined', offerId]
+    );
+
+    if (accept) {
+      await client.query(
+        `UPDATE applications
+            SET department_id = $1, status = 'submitted', admission_category = COALESCE($2, admission_category)
+          WHERE id = $3`,
+        [offer.to_department_id, offer.admission_category, offer.application_id]
+      );
+      await client.query(
+        `INSERT INTO application_status_history (application_id, from_status, to_status, note)
+         VALUES ($1,'change_offered','submitted',$2)`,
+        [offer.application_id, `Applicant accepted a change of course to ${dept?.name || 'another department'}`]
+      );
+    } else {
+      // Back where it was, so the next processing run still sees them.
+      await client.query(
+        `UPDATE applications SET status = 'submitted' WHERE id = $1 AND status = 'change_offered'`,
+        [offer.application_id]
+      );
+      await client.query(
+        `INSERT INTO application_status_history (application_id, from_status, to_status, note)
+         VALUES ($1,'change_offered','submitted','Applicant declined the change of course')`,
+        [offer.application_id]
+      );
+    }
+  });
+
+  return {
+    id: offerId,
+    status: accept ? 'accepted' : 'declined',
+    departmentId: accept ? offer.to_department_id : offer.from_department_id,
+    departmentName: accept ? dept?.name : null,
+  };
 }
 
 async function notifyAdmitted(rows) {
@@ -410,4 +746,8 @@ async function summary(institutionId, quotaId) {
   };
 }
 
-module.exports = { listApplicants, process, decide, switchDepartment, close, summary, rankingScore, seatsByCategory };
+module.exports = {
+  listApplicants, process, decide, switchDepartment, close, summary,
+  rankingScore, seatsByCategory,
+  listChangeOffers, listOffersForApplicant, respondToChangeOffer,
+};

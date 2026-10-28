@@ -19,6 +19,8 @@ const { reference } = require('../../utils/security');
 const regulator = require('../../services/regulator.service');
 const eligibility = require('../quotas/eligibility.service');
 const email = require('../../services/email.service');
+const feeSettings = require('../admin/feeSettings.service');
+const config = require('../../config');
 
 const ACTIVE_STATUSES = ['pending_payment', 'paid', 'verifying'];
 
@@ -61,22 +63,31 @@ async function platformFees() {
   };
 }
 
-/** Fee quote for the sitting-type dropdown, before anything is created. */
+/**
+ * Fee quote for the sitting-type choice, before anything is created.
+ * Prices come from platform_fee_settings, which the admin edits under
+ * Admin → Fees, so whatever the admin sets is what the checkout shows.
+ */
 async function quote() {
   const f = await platformFees();
   return {
     one: {
       sittingType: 'one',
+      sittings: 1,
       examProcessingNaira: f.examProcessingKobo / 100,
       secondSittingNaira: 0,
       totalNaira: f.examProcessingKobo / 100,
     },
     two: {
       sittingType: 'two',
+      sittings: 2,
       examProcessingNaira: f.examProcessingKobo / 100,
       secondSittingNaira: f.secondSittingKobo / 100,
       totalNaira: (f.examProcessingKobo + f.secondSittingKobo) / 100,
     },
+    // Lets the checkout tell the applicant no money will be taken while the
+    // temporary free-onboarding switch is on.
+    testMode: !!config.testMode.freeOnboarding,
   };
 }
 
@@ -357,6 +368,21 @@ async function choices(applicantId, sessionId) {
       entry.eligible = check.eligible;
       entry.reasons = check.reasons;
       entry.admissionCategory = check.admissionCategory;
+
+      // What the ADMIN set for this institution's type, so the applicant sees
+      // the real application fee before committing to a choice.
+      try {
+        const fee = await feeSettings.resolveFeeForInstitution(institution.id, {
+          sittings: (session.olevel_sittings || []).length || 1,
+        });
+        entry.applicationFeeNaira = fee.totalNaira;
+        entry.applicationFeeBreakdown = {
+          baseNaira: fee.applicationFeeKobo / 100,
+          secondSittingNaira: fee.secondSittingFeeKobo / 100,
+        };
+      } catch {
+        entry.applicationFeeNaira = null;
+      }
     } else {
       entry.reasons = ['This institution is not yet on TruEntry.'];
       entry.eligible = false;

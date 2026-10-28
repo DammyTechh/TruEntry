@@ -41,6 +41,9 @@ const APPLICATION_STATUS = Object.freeze({
   POST_UTME_COMPLETED: 'post_utme_completed',
   RECOMMENDED: 'recommended',
   APPROVED: 'approved',
+  // Holding an unanswered offer to change course, raised when a seat remained
+  // in another department the candidate also qualifies for.
+  CHANGE_OFFERED: 'change_offered',
   REJECTED: 'rejected',
   FORWARDED_JAMB: 'forwarded_jamb',
   ADMITTED: 'admitted',

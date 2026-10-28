@@ -118,4 +118,29 @@
  *     summary: Add a mock regulator record (jamb/olevel/nin)
  *     parameters: [{ in: path, name: kind, required: true, schema: { type: string, enum: [jamb, olevel, nin] } }]
  *     responses: { 201: { description: Created } }
+ *
+ * /admin/platform-fees:
+ *   get:
+ *     tags: [Admin]
+ *     summary: The applicant checkout prices (exam-processing fee + second-sitting surcharge)
+ *     description: >
+ *       These are the "sitting prices" quoted to every applicant at onboarding
+ *       checkout. GET /sessions/quote prices from them, so a change here appears
+ *       on the applicant's payment summary immediately.
+ *     responses: { 200: { description: Current checkout fees } }
+ *   patch:
+ *     tags: [Admin]
+ *     summary: Update the applicant checkout prices
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               examProcessingFeeNaira: { type: number, minimum: 0, example: 20000 }
+ *               secondSittingFeeNaira:  { type: number, minimum: 0, example: 10000 }
+ *     responses:
+ *       200: { description: Updated }
+ *       400: { description: Nothing to update }
  */

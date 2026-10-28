@@ -10,6 +10,18 @@ const updateProfileSchema = z.object({
   jambRegNo: z.string().trim().min(6).max(30).optional(),
   olevelExamType: z.enum(OLEVEL_EXAM_TYPES).optional(),
   olevelRegNo: z.string().trim().min(6).max(30).optional(),
+  // One or two sittings, recorded at onboarding. Two is what triggers the
+  // second-sitting surcharge on the checkout.
+  olevelSittings: z
+    .array(
+      z.object({
+        examType: z.enum(OLEVEL_EXAM_TYPES),
+        regNo: z.string().trim().min(6).max(30),
+      })
+    )
+    .min(1)
+    .max(2)
+    .optional(),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
   gender: z.enum(['male', 'female']).optional(),
   stateOfOrigin: z.enum(NIGERIAN_STATES).optional(),

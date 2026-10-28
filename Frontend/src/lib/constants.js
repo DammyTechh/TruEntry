@@ -28,6 +28,7 @@ export const STATUS_META = {
   post_utme_completed: { label: 'Post-UTME completed', cls: 'bg-primary-light text-primary' },
   recommended: { label: 'Recommended', cls: 'bg-primary-light text-primary' },
   approved: { label: 'Approved', cls: 'bg-green-50 text-success' },
+  change_offered: { label: 'Course change offered', cls: 'bg-amber-50 text-warning' },
   rejected: { label: 'Rejected', cls: 'bg-red-50 text-danger' },
   forwarded_jamb: { label: 'Forwarded to JAMB', cls: 'bg-primary-light text-primary' },
   admitted: { label: 'Admitted', cls: 'bg-green-50 text-success' },

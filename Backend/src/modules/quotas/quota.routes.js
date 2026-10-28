@@ -220,6 +220,16 @@ router.post('/:id/admissions/process', validate({ body: processSchema }), asyncH
   });
 }));
 
+// Change-of-course offers raised by the second pass of processing: seats that
+// were still empty after every applicant had been considered against the
+// department they actually applied to.
+router.get('/:id/admissions/change-offers', asyncHandler(async (req, res) => {
+  const data = await admissions.listChangeOffers(institutionId(req), req.params.id, {
+    status: req.query.status,
+  });
+  return success(res, { message: 'Change-of-course offers', data });
+}));
+
 // Finish the exercise.
 router.post('/:id/admissions/close', asyncHandler(async (req, res) => {
   const data = await admissions.close(institutionId(req), req.params.id);

@@ -37,6 +37,16 @@ const facultyUpdateSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
   isActive: z.boolean().optional(),
 });
+const OLEVEL_GRADES = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'];
+
+// O'Level requirements are typed in by the institution while the department
+// is being created, rather than only once per admission cycle.
+const olevelRequirementSchema = z.object({
+  subject: z.string().trim().min(2).max(80),
+  minimumGrade: z.enum(OLEVEL_GRADES).default('C6'),
+  isCompulsory: z.boolean().optional(),
+});
+
 const departmentSchema = z.object({
   name: z.string().trim().min(2).max(140),
   code: z.string().trim().max(20).optional(),
@@ -45,6 +55,10 @@ const departmentSchema = z.object({
   jambCutoff: z.coerce.number().min(0).max(400).optional(),
   postUtmeCutoff: z.coerce.number().min(0).max(400).optional(),
   aggregateCutoff: z.coerce.number().min(0).max(100).optional(),
+  minCredits: z.coerce.number().int().min(0).max(9).optional(),
+  maxSittings: z.coerce.number().int().min(1).max(2).optional(),
+  olevelNotes: z.string().trim().max(500).optional(),
+  olevelRequirements: z.array(olevelRequirementSchema).max(15).optional(),
 });
 const departmentUpdateSchema = departmentSchema.partial().extend({
   facultyId: z.string().uuid().nullable().optional(),
@@ -78,6 +92,11 @@ router.delete('/faculties/:id', asyncHandler(async (req, res) => {
 router.get('/departments', asyncHandler(async (req, res) => {
   const data = await service.listDepartments(institutionId(req), { facultyId: req.query.facultyId });
   return success(res, { message: 'Departments', data });
+}));
+
+router.get('/departments/:id', asyncHandler(async (req, res) => {
+  const data = await service.departmentWithRequirements(institutionId(req), req.params.id);
+  return success(res, { message: 'Department', data });
 }));
 
 router.post('/departments', validate({ body: departmentSchema }), asyncHandler(async (req, res) => {

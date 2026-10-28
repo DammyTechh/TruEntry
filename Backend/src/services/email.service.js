@@ -384,6 +384,42 @@ async function sendVerificationResult(to, name, { success, jambScore, choices = 
   return send({ to, subject: `TruEntry: ${title}`, html });
 }
 
+/**
+ * Sent when admissions processing finds a seat for a candidate in a DIFFERENT
+ * department from the one they applied to. The institution never moves anyone
+ * silently, so this email is the request to change course — the applicant
+ * accepts or declines it in their dashboard.
+ */
+async function sendCourseChangeOffer(to, name, { institution, fromDepartment, toDepartment, reason }) {
+  const title = 'An alternative course is available to you';
+
+  const body = `
+    <p style="margin:0 0 14px;">Hi ${name || 'there'},</p>
+    <p style="margin:0 0 6px;">
+      ${institution || 'The institution'} has finished considering applicants for
+      <strong>${fromDepartment || 'the course you applied for'}</strong>, and there was no seat left for you there.
+    </p>
+    <p style="margin:0 0 6px;">
+      You do, however, meet the requirements for a course that still has places:
+    </p>
+    ${infoTable([
+      ['Institution', institution || '—'],
+      ['You applied for', fromDepartment || '—'],
+      ['Available to you', toDepartment],
+    ])}
+    ${reason ? `<p style="margin:14px 0 0;color:${BRAND.muted};">${reason}</p>` : ''}
+    <p style="margin:14px 0 0;">
+      Nothing has changed on your application yet. Sign in to accept the change of course, or decline it
+      and stay where you are — if you decline, you remain in the running for your original choice.
+    </p>
+    ${button(config.urls.frontend + '/app/applications', 'Review the offer')}`;
+
+  const html = layout(title, body, {
+    preheader: `A place is available in ${toDepartment}.`,
+  });
+  return send({ to, subject: `TruEntry: ${title}`, html });
+}
+
 module.exports = {
   send,
   sendVerificationOtp,
@@ -397,4 +433,5 @@ module.exports = {
   sendCredentials,
   sendInstitutionCredentials,
   sendVerificationResult,
+  sendCourseChangeOffer,
 };
