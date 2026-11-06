@@ -7,13 +7,27 @@ const config = require('../../config');
 const { recordAudit } = require('../../middleware/audit.middleware');
 
 const REFRESH_COOKIE = 'refresh_token';
-const cookieOpts = {
-  httpOnly: true,
-  secure: config.isProd,
-  sameSite: config.isProd ? 'none' : 'lax',
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  path: config.apiPrefix + '/auth',
-};
+
+/**
+ * Refresh-cookie options, decided per request.
+ *
+ * Over HTTPS the cookie is always `Secure; SameSite=None`, so it is sent
+ * whether the frontend reaches the API on its own domain (through the
+ * /api proxy) or cross-site. Previously this depended on NODE_ENV alone: a
+ * deployment without NODE_ENV=production issued a `SameSite=Lax` cookie the
+ * browser then refused to send cross-site, so every refresh failed and
+ * applicants were signed out every 15 minutes.
+ */
+function cookieOpts(req) {
+  const secure = Boolean(req.secure || config.isProd);
+  return {
+    httpOnly: true,
+    secure,
+    sameSite: secure ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: config.apiPrefix + '/auth',
+  };
+}
 
 const register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body, req);
@@ -36,7 +50,7 @@ const resendOtp = asyncHandler(async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const { user, tokens } = await authService.login(req.body, req);
-  res.cookie(REFRESH_COOKIE, tokens.refreshToken, cookieOpts);
+  res.cookie(REFRESH_COOKIE, tokens.refreshToken, cookieOpts(req));
   req.user = user;
   await recordAudit({ req, action: 'auth.login', entity: 'user', entityId: user.id });
   return success(res, { message: 'Signed in successfully', data: { user, tokens } });
@@ -45,14 +59,15 @@ const login = asyncHandler(async (req, res) => {
 const refresh = asyncHandler(async (req, res) => {
   const refreshToken = req.body.refreshToken || req.cookies[REFRESH_COOKIE];
   const { tokens } = await authService.refresh({ refreshToken }, req);
-  res.cookie(REFRESH_COOKIE, tokens.refreshToken, cookieOpts);
+  res.cookie(REFRESH_COOKIE, tokens.refreshToken, cookieOpts(req));
   return success(res, { message: 'Token refreshed', data: { tokens } });
 });
 
 const logout = asyncHandler(async (req, res) => {
   const refreshToken = req.body.refreshToken || req.cookies[REFRESH_COOKIE];
   await authService.logout({ refreshToken }, req.user?.id);
-  res.clearCookie(REFRESH_COOKIE, { ...cookieOpts, maxAge: undefined });
+  const { maxAge, ...clearOpts } = cookieOpts(req); // eslint-disable-line no-unused-vars
+  res.clearCookie(REFRESH_COOKIE, clearOpts);
   return success(res, { message: 'Signed out successfully' });
 });
 

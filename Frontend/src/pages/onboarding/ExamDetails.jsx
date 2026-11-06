@@ -10,16 +10,6 @@ import { OLEVEL_TYPES } from '../../lib/constants';
 const SERVER_MULTI_SITTING_MESSAGE =
   "Both sittings are saved now. The second result is verified after payment, when you choose the two-sitting option.";
 
-function isOlevelNotFound(error) {
-  const code = error?.response?.data?.error?.code || error?.response?.data?.code;
-  const message = String(error?.response?.data?.message || error?.response?.data?.error?.message || error?.message || '').toLowerCase();
-  return code === 'OLEVEL_NOT_FOUND' || message.includes('o-level record not found') || message.includes('olevel record not found');
-}
-
-function enableOlevelTestBypass() {
-  return import.meta.env.DEV && typeof window !== 'undefined';
-}
-
 function inputClass(hasError = false) {
   return [
     'h-[44px] w-full rounded-xl border bg-white px-3 text-[15px] text-ink outline-none transition sm:text-[16px]',
@@ -121,7 +111,7 @@ function normalizeSittings(profile) {
 export default function ExamDetailsStep() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { profile, refresh, markDevStepComplete } = useOnboarding();
+  const { profile, refresh } = useOnboarding();
   const p = profile?.profile || {};
 
   const [jambRegNo, setJambRegNo] = useState(p.jambRegNo || '');
@@ -223,7 +213,6 @@ export default function ExamDetailsStep() {
         olevelRegNo: payload[0].regNo,
       });
 
-      markDevStepComplete(2);
       await refresh();
       toast.success(
         payload.length === 2

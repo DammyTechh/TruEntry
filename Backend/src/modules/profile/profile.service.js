@@ -3,6 +3,7 @@
 const { query, queryOne } = require('../../config/database');
 const ApiError = require('../../utils/ApiError');
 const ninService = require('../../services/nin.service');
+const testMode = require('../../services/testMode.service');
 const regulatorService = require('../../services/regulator.service');
 const storageService = require('../../services/storage.service');
 
@@ -106,11 +107,24 @@ async function updateProfile(userId, body) {
   const sets = [];
   const values = [];
   let i = 1;
+  // When the sittings list is sent, it is the source of truth for the legacy
+  // single-sitting columns (mirrored below). Writing those columns from both
+  // places made Postgres reject the save ("multiple assignments to same
+  // column olevel_exam_type"), which blocked every applicant on exam details.
+  const sittingsSent = Array.isArray(body.olevelSittings);
   for (const [key, col] of Object.entries(map)) {
+    if (sittingsSent && (key === 'olevelExamType' || key === 'olevelRegNo')) continue;
     if (body[key] !== undefined) {
       sets.push(`${col} = $${i++}`);
       values.push(body[key]);
     }
+  }
+
+  // A different NIN must be verified again; re-sending the same one keeps
+  // its verified state. (SET expressions see the row's OLD values.)
+  if (body.nin !== undefined) {
+    sets.push(`nin_verified = CASE WHEN nin = $${i++} THEN nin_verified ELSE FALSE END`);
+    values.push(body.nin);
   }
 
   // One or two O'Level sittings, recorded (not verified) at onboarding. The
@@ -146,11 +160,15 @@ async function updateProfile(userId, body) {
  * Verify NIN via Dojah (or mock) and persist the result.
  */
 async function verifyNin(userId, nin) {
-  const existing = await queryOne(
-    'SELECT id FROM applicant_profiles WHERE nin = $1 AND user_id <> $2',
-    [nin, userId]
-  );
-  if (existing) throw ApiError.conflict('This NIN is already linked to another account', { code: 'NIN_IN_USE' });
+  // One NIN per account — except while the testing switch is on, when testers
+  // reuse the same demo NIN across many accounts.
+  if (!(await testMode.isFreeOnboarding())) {
+    const existing = await queryOne(
+      'SELECT id FROM applicant_profiles WHERE nin = $1 AND user_id <> $2',
+      [nin, userId]
+    );
+    if (existing) throw ApiError.conflict('This NIN is already linked to another account', { code: 'NIN_IN_USE' });
+  }
 
   const data = await ninService.validateNin(nin);
   await query(

@@ -1,6 +1,23 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://tru-entry.vercel.app/api/v1';
+/**
+ * Where the API lives.
+ *
+ * The deployed site calls the API on its OWN domain (`/api/v1`), and
+ * vercel.json forwards those requests to the backend. That makes the sign-in
+ * cookie first-party. When the browser had to talk to tru-entry.vercel.app
+ * directly, the refresh cookie was a third-party cookie, which Safari, iOS,
+ * Firefox, Brave and private windows block — so the session silently died
+ * every 15 minutes when the access token expired.
+ *
+ * Local development uses the same relative path through the Vite proxy (see
+ * vite.config.js), or VITE_API_URL when it is set. Set VITE_API_DIRECT=true
+ * only if a deployment cannot use the proxy.
+ */
+const BASE_URL =
+  import.meta.env.PROD && import.meta.env.VITE_API_DIRECT !== 'true'
+    ? '/api/v1'
+    : import.meta.env.VITE_API_URL || '/api/v1';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -26,6 +43,8 @@ const LEGACY_REFRESH_KEY = 'tru_refresh_token';
  * cross-site-scripting bug could at worst leak a token that expires in
  * minutes, never one that grants a week of access.
  */
+export const TOKEN_STORAGE_KEY = TOKEN_KEY;
+
 export const tokenStore = {
   get: () => localStorage.getItem(TOKEN_KEY),
   set: (access) => {
@@ -71,6 +90,16 @@ api.interceptors.response.use(
 
     if (status === 401 && !original._retry && !isAuthRoute) {
       original._retry = true;
+
+      // Another tab may already have refreshed while this request was in
+      // flight. Retry with the newer token instead of rotating again.
+      const sent = original.headers?.Authorization?.replace(/^Bearer\s+/, '');
+      const latest = tokenStore.get();
+      if (latest && sent && latest !== sent) {
+        original.headers.Authorization = `Bearer ${latest}`;
+        return api(original);
+      }
+
       try {
         if (!refreshing) {
           // No body: the refresh token travels as an httpOnly cookie

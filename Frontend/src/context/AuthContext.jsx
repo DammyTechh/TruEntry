@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import api, { tokenStore } from '../lib/api';
+import api, { tokenStore, TOKEN_STORAGE_KEY } from '../lib/api';
 
 const AuthContext = createContext(null);
 
@@ -13,6 +13,16 @@ const AuthContext = createContext(null);
 function unwrapUser(payload) {
   const d = payload?.data ?? payload;
   return d?.user ?? d ?? null;
+}
+
+/** The user id inside a JWT, without verifying it (display/sync only). */
+function tokenSubject(token) {
+  try {
+    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(part)).sub || null;
+  } catch {
+    return null;
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -54,10 +64,33 @@ export function AuthProvider({ children }) {
     };
     window.addEventListener('truentry:session-expired', onExpired);
 
+    // Keep every open tab on the same session. Signing out in one tab signs
+    // out the others; signing in (possibly as someone else) in one tab makes
+    // the others reload that account instead of acting on a stale one.
+    const onStorage = async (event) => {
+      if (!active || event.key !== TOKEN_STORAGE_KEY) return;
+      if (!event.newValue) {
+        setUser(null);
+        return;
+      }
+      // A routine token refresh keeps the same account; only reload when the
+      // token now belongs to someone else (or this tab had none).
+      if (!event.oldValue || tokenSubject(event.newValue) !== tokenSubject(event.oldValue)) {
+        try {
+          const { data } = await api.get('/auth/me');
+          if (active) setUser(unwrapUser(data));
+        } catch {
+          /* the interceptor handles a dead session */
+        }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
     return () => {
       active = false;
       clearTimeout(bail);
       window.removeEventListener('truentry:session-expired', onExpired);
+      window.removeEventListener('storage', onStorage);
     };
   }, []);
 
@@ -74,11 +107,17 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await api.post('/auth/logout', {});
+      // Bounded: signing out must never hang on a slow or unreachable API.
+      await api.post('/auth/logout', {}, { timeout: 8000 });
     } catch {
-      /* ignore */
+      /* ignore — the local session is cleared regardless */
     }
     tokenStore.clear();
+    try {
+      sessionStorage.removeItem('tru_session_expired');
+    } catch {
+      /* private mode */
+    }
     setUser(null);
   }, []);
 

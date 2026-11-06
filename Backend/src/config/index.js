@@ -109,7 +109,8 @@ const config = {
   },
 
   // ------------------------------------------------------------------------
-  // TEMPORARY TESTING SWITCH — remove the env var to restore normal behaviour.
+  // TESTING SWITCH — normally controlled from Admin → Application fees →
+  // Testing mode (services/testMode.service.js). This env var FORCES it on.
   //
   // TEST_MODE_FREE_ONBOARDING=true lets a tester walk the whole applicant
   // onboarding without spending money:

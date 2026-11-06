@@ -7,6 +7,7 @@ import { PageLoader } from '../../components/ui/Misc';
 import { useToast } from '../../components/ui/Toast';
 import api, { errMessage } from '../../lib/api';
 import { naira } from '../../lib/constants';
+import TestModeCard from '../../components/admin/TestModeCard';
 
 const LABELS = {
   university: 'University',
@@ -107,6 +108,8 @@ export default function FeeSettings() {
         title="Fees"
         subtitle="Set what applicants are charged at checkout and what each institution type costs to apply to."
       />
+
+      <TestModeCard />
 
       {/* ---------------- Applicant checkout (platform-wide) ---------------- */}
       <Card className="mb-8">

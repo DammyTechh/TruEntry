@@ -6,7 +6,13 @@ const { ENTRY_MODES, OLEVEL_EXAM_TYPES, NIGERIAN_STATES } = require('../../utils
 const updateProfileSchema = z.object({
   entryMode: z.enum([ENTRY_MODES.UTME, ENTRY_MODES.DIRECT_ENTRY]).optional(),
   // Recorded during onboarding; verified separately via /profile/verify-nin.
-  nin: z.string().trim().regex(/^\d{11}$/, 'NIN must be 11 digits').optional(),
+  // The profile API returns the NIN masked (e.g. 902****61). A form that was
+  // pre-filled from it and saved again sends that mask back; treat it as "no
+  // change" instead of rejecting the whole save with a 422.
+  nin: z.preprocess(
+    (v) => (typeof v === 'string' && (v.includes('*') || v.trim() === '') ? undefined : v),
+    z.string().trim().regex(/^\d{11}$/, 'NIN must be 11 digits').optional()
+  ),
   jambRegNo: z.string().trim().min(6).max(30).optional(),
   olevelExamType: z.enum(OLEVEL_EXAM_TYPES).optional(),
   olevelRegNo: z.string().trim().min(6).max(30).optional(),

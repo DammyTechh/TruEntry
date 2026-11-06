@@ -1,12 +1,24 @@
-import { ArrowRight, CircleUserRound } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { ArrowRight, CircleUserRound, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Logo from '../ui/Logo';
 import BrandBackdrop from '../ui/BrandBackdrop';
 import { Button } from '../ui/Primitives';
 import { useAuth } from '../../context/AuthContext';
 
 export function OnboardingLayout({ step, totalSteps = 3, children }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [signingOut, setSigningOut] = useState(false);
+
+  // Progress is saved on the server after every step, so signing out here is
+  // safe: the applicant resumes at the same step next time they sign in.
+  async function signOut() {
+    setSigningOut(true);
+    await logout();
+    navigate('/login', { replace: true });
+  }
+
   const firstName = user?.fullName?.trim()?.split(/\s+/)?.[0] || 'there';
 
   return (
@@ -16,7 +28,12 @@ export function OnboardingLayout({ step, totalSteps = 3, children }) {
       <header className="relative z-20 border-b border-border bg-white">
         <div className="container-tru flex h-16 items-center justify-between gap-4 lg:h-18">
           <Logo to="/" />
-          <Button to="/" variant="secondary" size="sm">Home</Button>
+          <div className="flex items-center gap-2">
+            <Button to="/" variant="secondary" size="sm">Home</Button>
+            <Button onClick={signOut} loading={signingOut} variant="secondary" size="sm" aria-label="Sign out">
+              <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sign out</span>
+            </Button>
+          </div>
         </div>
       </header>
 

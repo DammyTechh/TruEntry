@@ -50,9 +50,22 @@ const mockJambSchema = z.object({
   stateOfOrigin: z.string().optional(),
   subjects: z.array(z.object({ subject: z.string(), score: z.coerce.number() })).optional(),
   examYear: z.coerce.number().optional(),
+  // The institutions and courses the candidate chose on JAMB, in order. These
+  // are what the applicant sees as "choices" after verification, so picking a
+  // real institution + department here makes the whole apply flow testable.
+  choices: z
+    .array(
+      z.object({
+        position: z.coerce.number().int().min(1).max(4),
+        institutionId: z.string().uuid(),
+        departmentId: z.string().uuid().optional(),
+      })
+    )
+    .max(4)
+    .optional(),
 });
 const mockOlevelSchema = z.object({
-  examT ype: z.enum(['waec', 'neco', 'nabteb']),
+  examType: z.enum(['waec', 'neco', 'nabteb']),
   regNo: z.string().trim().min(6).max(30),
   fullName: z.string().trim().min(2),
   results: z.array(z.object({ subject: z.string(), grade: z.string() })),
@@ -161,5 +174,12 @@ router.post(
   },
   c.createMock
 );
+router.delete('/mock/:kind/:id', c.deleteMock);
+
+/* --------------------------- Testing switch ---------------------------- */
+// One switch for free onboarding: NIN accepted without Dojah, exam-processing
+// fee settled without Paystack. See services/testMode.service.js.
+router.get('/test-mode', c.getTestMode);
+router.patch('/test-mode', validate({ body: z.object({ enabled: z.boolean() }) }), c.setTestMode);
 
 module.exports = router;

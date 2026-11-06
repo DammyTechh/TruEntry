@@ -8,9 +8,26 @@ const ApiError = require('../../utils/ApiError');
 const { ROLES } = require('../../utils/constants');
 const logger = require('../../config/logger');
 const { recordAudit } = require('../../middleware/audit.middleware');
+const config = require('../../config');
+
+/**
+ * Send the applicant back to the SAME site they paid from. The frontend is
+ * served on more than one domain (truentry.org, www.truentry.org, the vercel
+ * preview), and the sign-in lives in that domain's storage. Returning them to
+ * a different domain after Paystack looked like a lost session. Only origins
+ * already on the CORS allow-list are used; anything else falls back to the
+ * configured PAYSTACK_CALLBACK_URL.
+ */
+function callbackUrlFor(req) {
+  const origin = req.headers.origin;
+  if (origin && config.corsOrigins.includes(origin)) {
+    return `${origin.replace(/\/+$/, '')}/payment/callback`;
+  }
+  return config.paystack.callbackUrl;
+}
 
 const initialize = asyncHandler(async (req, res) => {
-  const data = await service.initialize(req.user.id, req.body.applicationId);
+  const data = await service.initialize(req.user.id, req.body.applicationId, { callbackUrl: callbackUrlFor(req) });
   await recordAudit({ req, action: 'payment.initialized', entity: 'application', entityId: req.body.applicationId });
   return created(res, { message: 'Payment initialized', data });
 });
@@ -56,7 +73,7 @@ const webhook = asyncHandler(async (req, res) => {
 });
 
 const initializeSession = asyncHandler(async (req, res) => {
-  const data = await service.initializeSession(req.user.id, req.body.sessionId);
+  const data = await service.initializeSession(req.user.id, req.body.sessionId, { callbackUrl: callbackUrlFor(req) });
   return success(res, { message: 'Payment initialized', data });
 });
 

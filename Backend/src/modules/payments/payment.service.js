@@ -11,6 +11,7 @@ const logger = require('../../config/logger');
 const { APPLICATION_STATUS, PAYMENT_STATUS, PAYMENT_PURPOSE } = require('../../utils/constants');
 const applicationService = require('../applications/application.service');
 const feeSettings = require('../admin/feeSettings.service');
+const testMode = require('../../services/testMode.service');
 
 const APPLICATION_FEE_NAIRA = config.paystack.applicationFeeNgn || 2500;
 
@@ -34,7 +35,7 @@ function shape(p) {
 /**
  * Initialize a Paystack transaction for an application's admission fee.
  */
-async function initialize(userId, applicationId) {
+async function initialize(userId, applicationId, { callbackUrl } = {}) {
   const app = await queryOne(
     `SELECT a.*, u.email, u.full_name FROM applications a JOIN users u ON u.id = a.applicant_id
       WHERE a.id = $1 AND a.applicant_id = $2`,
@@ -76,6 +77,7 @@ async function initialize(userId, applicationId) {
     email: app.email,
     amountKobo,
     reference: ref,
+    callbackUrl,
     metadata: {
       applicationId,
       userId,
@@ -101,7 +103,7 @@ async function initialize(userId, applicationId) {
  * for credential verification). Amount comes from the session's own captured
  * breakdown, so a later price change never alters an in-flight purchase.
  */
-async function initializeSession(userId, sessionId) {
+async function initializeSession(userId, sessionId, { callbackUrl } = {}) {
   const session = await queryOne(
     `SELECT s.*, u.email, u.full_name
        FROM application_sessions s JOIN users u ON u.id = s.applicant_id
@@ -129,26 +131,26 @@ async function initializeSession(userId, sessionId) {
   }
 
   // ----------------------------------------------------------------------
-  // TEMPORARY (TEST_MODE_FREE_ONBOARDING): settle the exam-processing fee
+  // TESTING SWITCH (services/testMode.service.js): settle the exam-processing fee
   // without sending the applicant to Paystack, so the flow can be tested end
   // to end. The payment row and the session move through exactly the same
   // states as a real charge — only the gateway round-trip is skipped — and
   // the row is tagged channel='test_mode' so it can be told apart later.
-  // Unset the env var and the live checkout below runs again unchanged.
+  // Turn the switch off and the live checkout below runs again unchanged.
   // ----------------------------------------------------------------------
-  if (config.testMode.freeOnboarding) {
+  if (await testMode.isFreeOnboarding()) {
     await settleSuccess(payment, {
       status: 'success',
       channel: 'test_mode',
       raw: { testMode: true, amount: amountKobo, reference: ref },
     });
-    logger.warn('Session fee settled WITHOUT payment (TEST_MODE_FREE_ONBOARDING)', { sessionId, ref });
+    logger.warn('Session fee settled WITHOUT payment (testing switch is on)', { sessionId, ref });
     const settled = await queryOne('SELECT * FROM payments WHERE id = $1', [payment.id]);
     return {
       payment: shape(settled),
       // The frontend redirects here exactly as it would after Paystack, so the
       // callback screen and its verification step are still exercised.
-      authorizationUrl: `${config.paystack.callbackUrl}?reference=${encodeURIComponent(ref)}&testMode=1`,
+      authorizationUrl: `${callbackUrl || config.paystack.callbackUrl}?reference=${encodeURIComponent(ref)}&testMode=1`,
       accessCode: null,
       reference: ref,
       testMode: true,
@@ -159,6 +161,7 @@ async function initializeSession(userId, sessionId) {
     email: session.email,
     amountKobo,
     reference: ref,
+    callbackUrl,
     metadata: {
       sessionId,
       userId,

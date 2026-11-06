@@ -21,6 +21,7 @@ const eligibility = require('../quotas/eligibility.service');
 const email = require('../../services/email.service');
 const feeSettings = require('../admin/feeSettings.service');
 const config = require('../../config');
+const testMode = require('../../services/testMode.service');
 
 const ACTIVE_STATUSES = ['pending_payment', 'paid', 'verifying'];
 
@@ -87,7 +88,7 @@ async function quote() {
     },
     // Lets the checkout tell the applicant no money will be taken while the
     // temporary free-onboarding switch is on.
-    testMode: !!config.testMode.freeOnboarding,
+    testMode: await testMode.isFreeOnboarding(),
   };
 }
 
@@ -307,6 +308,11 @@ async function verify(applicantId, sessionId, input) {
  * The institution/course choices the candidate already gave JAMB, enriched
  * with whether each one is actually open and whether the applicant qualifies.
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(v) {
+  return typeof v === 'string' && UUID_RE.test(v);
+}
+
 async function choices(applicantId, sessionId) {
   const session = await queryOne(
     'SELECT * FROM application_sessions WHERE id = $1 AND applicant_id = $2',
@@ -323,13 +329,21 @@ async function choices(applicantId, sessionId) {
 
   for (const [index, choice] of raw.entries()) {
     // Match the JAMB choice to an institution on the platform.
+    // Demo records created from Admin → Mock data carry the platform ids;
+    // records from JAMB itself only carry names, so fall back to matching on
+    // name or code.
     const institution = await queryOne(
       `SELECT i.*, c.type AS institution_type
          FROM institutions i
          LEFT JOIN institution_categories c ON c.id = i.category_id
-        WHERE i.name ILIKE $1 OR i.code ILIKE $2
+        WHERE ($3::uuid IS NOT NULL AND i.id = $3::uuid)
+           OR ($3::uuid IS NULL AND (i.name ILIKE $1 OR i.code ILIKE $2))
         LIMIT 1`,
-      [choice.institution || choice.institutionName || '', choice.code || choice.institutionCode || '']
+      [
+        choice.institution || choice.institutionName || '',
+        choice.code || choice.institutionCode || '',
+        isUuid(choice.institutionId) ? choice.institutionId : null,
+      ]
     );
 
     const entry = {
@@ -348,9 +362,11 @@ async function choices(applicantId, sessionId) {
       // Match the JAMB course to one of the institution's departments.
       const department = await queryOne(
         `SELECT * FROM departments
-          WHERE institution_id = $1 AND is_active AND name ILIKE $2
+          WHERE institution_id = $1 AND is_active
+            AND (($3::uuid IS NOT NULL AND id = $3::uuid)
+                 OR ($3::uuid IS NULL AND name ILIKE $2))
           LIMIT 1`,
-        [institution.id, entry.courseName || '']
+        [institution.id, entry.courseName || '', isUuid(choice.departmentId) ? choice.departmentId : null]
       );
       entry.departmentId = department?.id || null;
       entry.departmentName = department?.name || null;

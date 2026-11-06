@@ -181,6 +181,15 @@ async function login({ email, password }, req) {
   return { user: publicUser(user), tokens };
 }
 
+/**
+ * A refresh token that was rotated moments ago is still honoured for this many
+ * seconds. Two tabs (or a page reload racing a background request) routinely
+ * refresh at the same instant with the same cookie; strict single-use rotation
+ * made the slower one fail and sign the applicant out for no reason.
+ * Tokens revoked by SIGN-OUT are never honoured: logout also expires them.
+ */
+const ROTATION_GRACE_SECONDS = 30;
+
 async function refresh({ refreshToken }, req) {
   if (!refreshToken) throw ApiError.unauthorized('Refresh token required', { code: 'REFRESH_MISSING' });
   const payload = verifyRefreshToken(refreshToken);
@@ -189,33 +198,63 @@ async function refresh({ refreshToken }, req) {
     'SELECT * FROM refresh_tokens WHERE jti = $1 AND user_id = $2',
     [payload.jti, payload.sub]
   );
-  if (!record || record.revoked_at) {
+  if (!record) {
     throw ApiError.unauthorized('Session has been revoked. Please sign in again.', { code: 'REFRESH_REVOKED' });
   }
   if (new Date(record.expires_at) < new Date()) {
     throw ApiError.unauthorized('Session expired. Please sign in again.', { code: 'REFRESH_EXPIRED' });
   }
+  if (record.revoked_at) {
+    const ageSeconds = (Date.now() - new Date(record.revoked_at).getTime()) / 1000;
+    if (ageSeconds > ROTATION_GRACE_SECONDS) {
+      throw ApiError.unauthorized('Session has been revoked. Please sign in again.', { code: 'REFRESH_REVOKED' });
+    }
+  }
 
   const user = await queryOne('SELECT * FROM users WHERE id = $1', [payload.sub]);
   if (!user || !user.is_active) throw ApiError.unauthorized('Account unavailable');
 
-  // Rotate: revoke the old token, issue a new one.
-  await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1', [record.id]);
+  // Rotate: revoke the old token (if not already), issue a new one.
+  if (!record.revoked_at) {
+    await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1', [record.id]);
+  }
   const newRefresh = await createRefreshToken(user, req);
   return { tokens: buildTokens(user, newRefresh) };
 }
 
+/**
+ * Sign out. Revoked tokens are also EXPIRED, which is what distinguishes a
+ * sign-out from a rotation and keeps them outside the refresh grace window.
+ */
 async function logout({ refreshToken }, userId) {
+  let ownerId = userId || null;
   if (refreshToken) {
     try {
       const payload = verifyRefreshToken(refreshToken);
-      await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE jti = $1', [payload.jti]);
+      ownerId = ownerId || payload.sub;
+      await query(
+        'UPDATE refresh_tokens SET revoked_at = COALESCE(revoked_at, NOW()), expires_at = NOW() WHERE jti = $1',
+        [payload.jti]
+      );
     } catch {
-      /* ignore */
+      /* ignore an unreadable token — the cookie is cleared regardless */
     }
-  } else if (userId) {
-    // Revoke all sessions for the user.
-    await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL', [userId]);
+  }
+  if (ownerId) {
+    // Tokens rotated in the last moments belong to this same browser session
+    // (the grace window). Close them too so none can be replayed after sign-out.
+    await query(
+      `UPDATE refresh_tokens SET expires_at = NOW()
+        WHERE user_id = $1 AND revoked_at > NOW() - make_interval(secs => $2)`,
+      [ownerId, ROTATION_GRACE_SECONDS * 2]
+    );
+  }
+  if (!refreshToken && userId) {
+    // No cookie reached us: revoke every session for the user.
+    await query(
+      'UPDATE refresh_tokens SET revoked_at = NOW(), expires_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+      [userId]
+    );
   }
   return { loggedOut: true };
 }

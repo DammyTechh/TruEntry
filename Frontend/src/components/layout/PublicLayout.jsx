@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ArrowRight, Mail, MapPin, Phone } from 'lucide-react';
 import { FaXTwitter, FaLinkedinIn, FaInstagram, FaFacebookF } from 'react-icons/fa6';
 import Logo from '../ui/Logo';
@@ -15,8 +15,14 @@ const NAV = [
 ];
 
 export function PublicNav() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  async function signOut() {
+    await logout();
+    navigate('/login', { replace: true });
+  }
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
 
@@ -47,7 +53,10 @@ export function PublicNav() {
         </nav>
         <div className="hidden items-center gap-2 md:flex">
           {user ? (
-            <Button to={ROLE_HOME[user.role] || '/app'} size="sm">Dashboard <ArrowRight className="h-4 w-4" /></Button>
+            <>
+              <Button onClick={signOut} variant="ghost" size="sm">Sign out</Button>
+              <Button to={ROLE_HOME[user.role] || '/app'} size="sm">Dashboard <ArrowRight className="h-4 w-4" /></Button>
+            </>
           ) : (
             <>
               <Button to="/login" variant="ghost" size="sm">Sign in</Button>
@@ -72,7 +81,10 @@ export function PublicNav() {
             ))}
             <div className="flex gap-2 pt-3">
               {user ? (
-                <Button to={ROLE_HOME[user.role] || '/app'} className="flex-1">Go to dashboard</Button>
+                <>
+                  <Button onClick={signOut} variant="secondary" className="flex-1">Sign out</Button>
+                  <Button to={ROLE_HOME[user.role] || '/app'} className="flex-1">Go to dashboard</Button>
+                </>
               ) : (
                 <>
                   <Button to="/login" variant="secondary" className="flex-1">Sign in</Button>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Info, Plus, Trash2, Save, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, Button, Badge } from '../../components/ui/Primitives';
@@ -403,7 +403,11 @@ export default function QuotaBuilder() {
             <div className="divide-y divide-border">
               {allDepartments.length === 0 && (
                 <p className="px-4 py-6 text-center text-sm text-muted">
-                  No departments yet — add them in Settings first.
+                  No departments yet —{' '}
+                  <Link to="/institution/departments" className="font-medium text-primary hover:underline">
+                    add your departments
+                  </Link>{' '}
+                  first, then come back to allocate seats.
                 </p>
               )}
               {allDepartments.map((d) => {

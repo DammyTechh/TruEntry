@@ -146,7 +146,10 @@ async function process(institutionId, quotaId, { commit = false, departmentId } 
   if (departmentId) { params.push(departmentId); deptSql = `AND qd.department_id = $${params.length}`; }
 
   const { rows: departments } = await query(
-    `SELECT qd.*, d.name AS department_name
+    `SELECT qd.*, d.name AS department_name,
+            d.jamb_cutoff AS dept_jamb_cutoff,
+            d.post_utme_cutoff AS dept_post_utme_cutoff,
+            d.aggregate_cutoff AS dept_aggregate_cutoff
        FROM quota_departments qd
        JOIN departments d ON d.id = qd.department_id
       WHERE qd.quota_id = $1 AND qd.is_selected ${deptSql}
@@ -191,10 +194,26 @@ async function process(institutionId, quotaId, { commit = false, departmentId } 
     const selected = [];
     const waitlisted = [];
 
+    // Score requirements: the cycle's JAMB cut-off, raised by the
+    // department's own when it is stricter, plus the department's Post-UTME
+    // and aggregate minimums when the cycle ranks on Post-UTME.
+    const usesPostUtme = quota.admission_rule === 'jamb_postutme_average';
+    const jambCutoff = Math.max(Number(quota.jamb_cutoff || 0), Number(dept.dept_jamb_cutoff || 0));
+    const postUtmeCutoff = usesPostUtme ? Number(dept.dept_post_utme_cutoff || 0) : 0;
+    const aggregateCutoff = usesPostUtme ? Number(dept.dept_aggregate_cutoff || 0) : 0;
+
     for (const c of ranked) {
-      // Below the cut-off is never admitted, regardless of remaining seats.
-      if (Number(c.jamb_score || 0) < Number(quota.jamb_cutoff || 0)) {
-        waitlisted.push({ ...c, _reason: 'Below JAMB cut-off' });
+      // Below a cut-off is never admitted, regardless of remaining seats.
+      if (Number(c.jamb_score || 0) < jambCutoff) {
+        waitlisted.push({ ...c, _reason: `Below JAMB cut-off (${jambCutoff})` });
+        continue;
+      }
+      if (postUtmeCutoff > 0 && Number(c.post_utme_score || 0) < postUtmeCutoff) {
+        waitlisted.push({ ...c, _reason: `Below Post-UTME cut-off (${postUtmeCutoff})` });
+        continue;
+      }
+      if (aggregateCutoff > 0 && c._score < aggregateCutoff) {
+        waitlisted.push({ ...c, _reason: `Below aggregate cut-off (${aggregateCutoff})` });
         continue;
       }
       const category = CATEGORIES.includes(c.admission_category) ? c.admission_category : 'national_merit';
@@ -215,6 +234,7 @@ async function process(institutionId, quotaId, { commit = false, departmentId } 
       departmentId: dept.department_id,
       departmentName: dept.department_name,
       allocated: dept.allocated,
+      cutoffs: { jamb: jambCutoff, postUtme: postUtmeCutoff, aggregate: aggregateCutoff },
       seatsByCategory: seats,
       admittedByCategory: taken,
       alreadyAdmitted,

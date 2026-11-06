@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Save, Building2 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, Button, Badge } from '../../components/ui/Primitives';
-import { Input, Select, PasswordInput } from '../../components/ui/Field';
+import { Input, PasswordInput } from '../../components/ui/Field';
 import { Modal, PageLoader, Pagination } from '../../components/ui/Misc';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
 import api, { errMessage } from '../../lib/api';
+import DepartmentEditor from '../../components/institution/DepartmentEditor';
 
 const strongPw = (v) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(v);
 
@@ -143,7 +144,7 @@ export default function Settings() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-base font-bold text-primary">Departments</h2>
-            <p className="mt-0.5 text-sm text-muted">Group departments under a faculty and set their cut-offs.</p>
+            <p className="mt-0.5 text-sm text-muted">Group departments under a faculty and set their seats, minimum scores and O-Level requirements.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setFacModal(true)}>
@@ -156,25 +157,29 @@ export default function Settings() {
         </div>
 
         <div className="mt-5 overflow-x-auto rounded-xl border border-border">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-primary-surface text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3">Faculty</th>
                 <th className="px-4 py-3">Department</th>
-                <th className="px-4 py-3">JAMB cut-off</th>
+                <th className="px-4 py-3">Min. JAMB</th>
+                <th className="px-4 py-3">Min. Post-UTME</th>
+                <th className="px-4 py-3">Seats</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {pageRows.length === 0 && (
-                <tr><td colSpan="5" className="px-4 py-10 text-center text-muted">No departments yet.</td></tr>
+                <tr><td colSpan="7" className="px-4 py-10 text-center text-muted">No departments yet.</td></tr>
               )}
               {pageRows.map((d) => (
                 <tr key={d.id} className="hover:bg-primary-surface">
                   <td className="px-4 py-3 text-muted">{d.facultyName || '—'}</td>
                   <td className="px-4 py-3 font-medium text-ink">{d.name}</td>
                   <td className="px-4 py-3">{d.jambCutoff || '—'}</td>
+                  <td className="px-4 py-3">{d.postUtmeCutoff || '—'}</td>
+                  <td className="px-4 py-3">{d.admissionQuota || '—'}</td>
                   <td className="px-4 py-3">
                     <Badge className={d.isActive ? 'bg-green-50 text-success' : 'bg-primary-surface text-muted'}>
                       {d.isActive ? 'Active' : 'Inactive'}
@@ -201,7 +206,7 @@ export default function Settings() {
         </div>
       </Card>
 
-      <DepartmentModal
+      <DepartmentEditor
         open={!!deptModal}
         department={deptModal}
         faculties={faculties}
@@ -243,69 +248,6 @@ function FacultyModal({ open, onClose, onSaved }) {
       footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save} loading={saving}>Create faculty</Button></>}
     >
       <Input label="Faculty" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Medical sciences" required />
-    </Modal>
-  );
-}
-
-function DepartmentModal({ open, department, faculties, onClose, onSaved }) {
-  const toast = useToast();
-  const isEdit = !!department?.id;
-  const [form, setForm] = useState({ name: '', code: '', facultyId: '', jambCutoff: '', admissionQuota: '' });
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setForm({
-      name: department?.name || '',
-      code: department?.code || '',
-      facultyId: department?.facultyId || '',
-      jambCutoff: department?.jambCutoff ?? '',
-      admissionQuota: department?.admissionQuota ?? '',
-    });
-  }, [open, department]);
-
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-
-  async function save() {
-    if (!form.name.trim()) return toast.error('Enter a department name');
-    setSaving(true);
-    try {
-      const payload = {
-        name: form.name.trim(),
-        code: form.code.trim() || undefined,
-        facultyId: form.facultyId || undefined,
-        jambCutoff: form.jambCutoff === '' ? undefined : Number(form.jambCutoff),
-        admissionQuota: form.admissionQuota === '' ? undefined : Number(form.admissionQuota),
-      };
-      if (isEdit) await api.put(`/workspace/departments/${department.id}`, payload);
-      else await api.post('/workspace/departments', payload);
-      toast.success(isEdit ? 'Department updated' : 'Department created');
-      onSaved();
-    } catch (err) {
-      toast.error(errMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      open={open} onClose={onClose}
-      title={isEdit ? 'Edit department' : 'Add a department'}
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save} loading={saving}>{isEdit ? 'Save changes' : 'Create department'}</Button></>}
-    >
-      <div className="space-y-4">
-        <Select label="Faculty" value={form.facultyId} onChange={set('facultyId')}>
-          <option value="">No faculty</option>
-          {faculties.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-        </Select>
-        <Input label="Department name (course)" value={form.name} onChange={set('name')} placeholder="e.g. Civil Engineering" required />
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Code" value={form.code} onChange={set('code')} placeholder="e.g. CVE" />
-          <Input label="JAMB cut-off" type="number" min="0" max="400" value={form.jambCutoff} onChange={set('jambCutoff')} />
-        </div>
-        <Input label="Admission quota" type="number" min="0" value={form.admissionQuota} onChange={set('admissionQuota')} hint="Default seats for this department" />
-      </div>
     </Modal>
   );
 }

@@ -24,7 +24,7 @@ const client = axios.create({
  * @param {object} [opts.metadata]
  * @returns {Promise<{authorizationUrl, accessCode, reference}>}
  */
-async function initializeTransaction({ email, amountKobo, reference, metadata }) {
+async function initializeTransaction({ email, amountKobo, reference, metadata, callbackUrl }) {
   if (!config.paystack.secretKey) {
     throw ApiError.serviceUnavailable('Payment gateway not configured', { code: 'PAYSTACK_NOT_CONFIGURED' });
   }
@@ -34,7 +34,7 @@ async function initializeTransaction({ email, amountKobo, reference, metadata })
       amount: amountKobo,
       reference,
       currency: 'NGN',
-      callback_url: config.paystack.callbackUrl,
+      callback_url: callbackUrl || config.paystack.callbackUrl,
       metadata,
     });
     return {

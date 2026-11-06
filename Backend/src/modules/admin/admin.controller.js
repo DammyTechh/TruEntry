@@ -79,6 +79,27 @@ const createMock = asyncHandler(async (req, res) => {
   return created(res, { message: `Mock ${req.params.kind} record created`, data });
 });
 
+const deleteMock = asyncHandler(async (req, res) => {
+  const data = await service.deleteMock(req.params.kind, req.params.id);
+  return success(res, { message: `Mock ${req.params.kind} record deleted`, data });
+});
+
+/* ---------------------------- Testing switch ---------------------------- */
+const testMode = require('../../services/testMode.service');
+
+const getTestMode = asyncHandler(async (req, res) => {
+  const data = await testMode.status();
+  return success(res, { message: 'Testing switch', data });
+});
+
+const setTestMode = asyncHandler(async (req, res) => {
+  const data = await testMode.setEnabled(req.body.enabled, req.user.id);
+  await recordAudit({
+    req, action: req.body.enabled ? 'admin.test_mode_on' : 'admin.test_mode_off', entity: 'app_settings',
+  });
+  return success(res, { message: `Testing switch turned ${req.body.enabled ? 'on' : 'off'}`, data });
+});
+
 /* ------------------- Institution onboarding & fee settings ------------------- */
 const onboarding = require('../institutions/onboarding.service');
 const feeSettings = require('./feeSettings.service');
@@ -166,6 +187,9 @@ module.exports = {
   auditLogs,
   listMock,
   createMock,
+  deleteMock,
+  getTestMode,
+  setTestMode,
   onboardInstitution,
   listOnboardedInstitutions,
   resendInstitutionCredentials,

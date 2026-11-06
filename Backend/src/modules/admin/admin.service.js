@@ -339,19 +339,75 @@ async function listMock(kind, q) {
   return { data: rows, total, page, limit };
 }
 
+/**
+ * Turn [{ position, institutionId, departmentId }] into the JAMB choice shape
+ * the applicant flow reads: [{ position, institution, code, course, ... }].
+ * Names come from the platform's own records, so the applicant's choices
+ * always match a real institution and department on TruEntry.
+ */
+async function resolveJambChoices(choices) {
+  if (!Array.isArray(choices) || !choices.length) return [];
+  const positions = new Set();
+  const out = [];
+  for (const c of [...choices].sort((a, b) => a.position - b.position)) {
+    if (positions.has(c.position)) {
+      throw ApiError.badRequest(`Choice position ${c.position} is used twice`, { code: 'DUPLICATE_CHOICE' });
+    }
+    positions.add(c.position);
+
+    const inst = await queryOne('SELECT id, name, code FROM institutions WHERE id = $1', [c.institutionId]);
+    if (!inst) throw ApiError.badRequest(`Institution for choice ${c.position} was not found`);
+
+    let dept = null;
+    if (c.departmentId) {
+      dept = await queryOne(
+        'SELECT id, name, code FROM departments WHERE id = $1 AND institution_id = $2',
+        [c.departmentId, inst.id]
+      );
+      if (!dept) {
+        throw ApiError.badRequest(`The course for choice ${c.position} does not belong to ${inst.name}`);
+      }
+    }
+    out.push({
+      position: c.position,
+      institution: inst.name,
+      code: inst.code,
+      course: dept?.name || null,
+      courseCode: dept?.code || null,
+      institutionId: inst.id,
+      departmentId: dept?.id || null,
+    });
+  }
+  return out;
+}
+
 async function createMock(kind, body) {
   if (kind === 'jamb') {
+    const choices = await resolveJambChoices(body.choices);
+    // Upsert on the registration number, so a record can be corrected by
+    // saving it again instead of failing with "already exists".
     return queryOne(
-      `INSERT INTO mock_jamb_records (jamb_reg_no, full_name, jamb_score, date_of_birth, gender, state_of_origin, subjects, exam_year)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      `INSERT INTO mock_jamb_records
+         (jamb_reg_no, full_name, jamb_score, date_of_birth, gender, state_of_origin, subjects, exam_year, choices)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
+       ON CONFLICT (jamb_reg_no) DO UPDATE SET
+         full_name = EXCLUDED.full_name, jamb_score = EXCLUDED.jamb_score,
+         date_of_birth = EXCLUDED.date_of_birth, gender = EXCLUDED.gender,
+         state_of_origin = EXCLUDED.state_of_origin, subjects = EXCLUDED.subjects,
+         exam_year = EXCLUDED.exam_year, choices = EXCLUDED.choices
+       RETURNING *`,
       [body.regNo || body.jambRegNo, body.fullName, body.jambScore, body.dateOfBirth || null, body.gender || null,
-       body.stateOfOrigin || null, body.subjects ? JSON.stringify(body.subjects) : null, body.examYear || null]
+       body.stateOfOrigin || null, body.subjects ? JSON.stringify(body.subjects) : null, body.examYear || null,
+       JSON.stringify(choices)]
     );
   }
   if (kind === 'olevel') {
     return queryOne(
       `INSERT INTO mock_olevel_records (exam_type, reg_no, full_name, results, exam_year)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (exam_type, reg_no) DO UPDATE SET
+         full_name = EXCLUDED.full_name, results = EXCLUDED.results, exam_year = EXCLUDED.exam_year
+       RETURNING *`,
       [body.examType, body.regNo, body.fullName, JSON.stringify(body.results || []), body.examYear || null]
     );
   }
@@ -364,6 +420,14 @@ async function createMock(kind, body) {
     );
   }
   throw ApiError.badRequest('Invalid mock data kind');
+}
+
+async function deleteMock(kind, id) {
+  const table = { jamb: 'mock_jamb_records', olevel: 'mock_olevel_records' }[kind];
+  if (!table) throw ApiError.badRequest('Invalid mock data kind');
+  const row = await queryOne(`DELETE FROM ${table} WHERE id = $1 RETURNING id`, [id]);
+  if (!row) throw ApiError.notFound('Mock record not found');
+  return { deleted: true };
 }
 
 module.exports = {
@@ -380,4 +444,5 @@ module.exports = {
   auditLogs,
   listMock,
   createMock,
+  deleteMock,
 };

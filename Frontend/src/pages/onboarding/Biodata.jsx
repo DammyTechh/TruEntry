@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { OnboardingLayout, OnboardingPrimaryButton } from '../../components/onboarding/OnboardingLayout';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { useToast } from '../../components/ui/Toast';
-import api, { errMessage } from '../../lib/api';
+import api, { errMessage, fieldErrors } from '../../lib/api';
 import { NIGERIAN_STATES } from '../../lib/constants';
 import CameraCapture from '../../components/ui/CameraCapture';
 
@@ -50,7 +50,7 @@ function TextField({ label, error, className = '', ...props }) {
 export default function BiodataStep() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { profile: profilePayload, refresh, markDevStepComplete } = useOnboarding();
+  const { profile: profilePayload, refresh } = useOnboarding();
   const p = profilePayload?.profile || {};
   const fileInputRef = useRef(null);
 
@@ -132,75 +132,44 @@ export default function BiodataStep() {
 
     setSaving(true);
     try {
-      // Record everything first, including the NIN, so nothing is lost if the
-      // identity lookup below fails. NIN verification is a live Dojah call and
-      // only the verified FLAG depends on it succeeding.
+      // Record everything first so nothing is lost if a later step fails.
+      // A NIN that is already verified is shown masked (902****61) and is not
+      // sent back — re-sending the mask is what produced the 422 on Continue.
+      const ninChanged = !p.ninVerified;
       await api.put('/profile', {
         dateOfBirth: form.dateOfBirth,
         gender: form.gender,
         stateOfOrigin: form.stateOfOrigin,
         lga: form.lga.trim(),
         location: form.location.trim(),
-        nin: form.nin.trim(),
+        ...(ninChanged ? { nin: form.nin.trim() } : {}),
       });
 
-      let ninBypassedForTesting = false;
-      if (!p.ninVerified) {
-        try {
-          await api.post('/profile/verify-nin', { nin: form.nin.trim() });
-        } catch (error) {
-          const status = error?.response?.status;
-          const message = errMessage(error);
-          const ninNotFound = status === 404 || /nin.*not found|not found.*nin|validation service/i.test(message);
-
-          if (import.meta.env.DEV && ninNotFound) {
-            // Temporary local-development escape hatch so onboarding can be
-            // tested while the deployed backend has no seeded demo NINs.
-            ninBypassedForTesting = true;
-          } else {
-            throw error;
-          }
-        }
+      // While the testing switch is on, the server accepts the NIN without the
+      // live lookup. No client-side shortcut is needed either way.
+      if (ninChanged) {
+        await api.post('/profile/verify-nin', { nin: form.nin.trim() });
       }
 
-      let photoBypassedForTesting = false;
       if (file) {
         const body = new FormData();
         body.append('image', file);
         try {
           await api.post('/profile/image', body);
         } catch (error) {
-          const status = error?.response?.status;
-          if (import.meta.env.DEV && status === 502) {
-            // Temporary local-development escape hatch so the remaining
-            // onboarding screens can be tested while backend image storage is
-            // unavailable. This is deliberately disabled in production builds.
-            photoBypassedForTesting = true;
-          } else {
-            const message = `Your biodata was saved, but your passport photo could not be uploaded. ${errMessage(error)}`;
-            setErrors((current) => ({ ...current, photo: message }));
-            toast.error(message);
-            return;
-          }
+          const message = `Your biodata was saved, but your passport photo could not be uploaded. ${errMessage(error)}`;
+          setErrors((current) => ({ ...current, photo: message }));
+          toast.error(message);
+          return;
         }
       }
 
-      // In local development, remember that this account completed Step 1.
-      // This survives logout/login so returning-applicant routing can be tested
-      // even while the backend image/NIN services are unavailable.
-      markDevStepComplete(1);
       await refresh();
-      if (photoBypassedForTesting || ninBypassedForTesting) {
-        const bypassed = [
-          photoBypassedForTesting ? 'passport photo upload' : null,
-          ninBypassedForTesting ? 'NIN verification' : null,
-        ].filter(Boolean).join(' and ');
-        toast.info(`${bypassed} ${photoBypassedForTesting && ninBypassedForTesting ? 'are' : 'is'} temporarily bypassed in local development so you can test the remaining onboarding screens.`);
-      } else {
-        toast.success('Biodata saved. Continue with your exam details.');
-      }
+      toast.success('Biodata saved. Continue with your exam details.');
       navigate('/onboarding/exam-details');
     } catch (error) {
+      const fields = fieldErrors(error);
+      if (Object.keys(fields).length) setErrors((current) => ({ ...current, ...fields }));
       toast.error(errMessage(error));
     } finally {
       setSaving(false);

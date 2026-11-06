@@ -5,6 +5,7 @@ const config = require('../config');
 const logger = require('../config/logger');
 const { queryOne } = require('../config/database');
 const ApiError = require('../utils/ApiError');
+const testMode = require('./testMode.service');
 
 /**
  * Normalise any NIN source (Dojah live or mock table) into the internal model.
@@ -130,8 +131,10 @@ async function validateNin(nin) {
     throw ApiError.badRequest('NIN must be exactly 11 digits', { code: 'INVALID_NIN' });
   }
 
-  if (config.testMode.freeOnboarding) {
-    logger.warn('NIN validation SIMULATED (TEST_MODE_FREE_ONBOARDING)', { mode: 'test_mode' });
+  // Testing switch (see services/testMode.service.js). Everything below this
+  // block is the real lookup and is unchanged.
+  if (await testMode.isFreeOnboarding()) {
+    logger.warn('NIN validation SIMULATED (testing switch is on)', { mode: 'test_mode' });
     return simulated(String(nin));
   }
 
