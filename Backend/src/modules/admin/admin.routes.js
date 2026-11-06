@@ -52,7 +52,7 @@ const mockJambSchema = z.object({
   examYear: z.coerce.number().optional(),
 });
 const mockOlevelSchema = z.object({
-  examType: z.enum(['waec', 'neco', 'nabteb']),
+  examT ype: z.enum(['waec', 'neco', 'nabteb']),
   regNo: z.string().trim().min(6).max(30),
   fullName: z.string().trim().min(2),
   results: z.array(z.object({ subject: z.string(), grade: z.string() })),
