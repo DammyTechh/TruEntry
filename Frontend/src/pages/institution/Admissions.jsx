@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Play, CheckCircle2, XCircle, Lock, Users, Search,
-  AlertTriangle, ShieldCheck, Shuffle,
+  AlertTriangle, ShieldCheck, Shuffle, X,
 } from 'lucide-react';
 import { usePaged } from '../../lib/hooks';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -182,6 +182,16 @@ export function AdmissionDetail() {
     { key: 'departmentName', header: 'Department' },
     { key: 'stateOfOrigin', header: 'State', render: (r) => r.stateOfOrigin || '—' },
     { key: 'jambScore', header: 'JAMB', render: (r) => <span className="font-semibold text-ink">{r.jambScore ?? '—'}</span> },
+    // Editable, because an institution runs its own Post-UTME and needs the
+    // scores in before a cycle ranked on the JAMB + Post-UTME average can be
+    // processed. Only shown when the cycle actually uses it.
+    ...(summary?.quota?.admissionRule === 'jamb_postutme_average'
+      ? [{
+          key: 'postUtmeScore',
+          header: 'Post-UTME',
+          render: (r) => <PostUtmeCell row={r} quotaId={id} onSaved={() => { refetch(); loadSummary(); }} />,
+        }]
+      : []),
     { key: 'rankingScore', header: 'Rank score', render: (r) => r.rankingScore ?? '—' },
     {
       key: 'admissionCategory',
@@ -386,6 +396,77 @@ export function AdmissionDetail() {
         onClose={() => setSwitchFor(null)}
         onDone={() => { setSwitchFor(null); refetch(); loadSummary(); }}
       />
+    </div>
+  );
+}
+
+/**
+ * The candidate's Post-UTME score, editable in place.
+ *
+ * An institution runs its own Post-UTME, so the scores have to get in before a
+ * cycle ranked on the JAMB + Post-UTME average means anything. A score typed
+ * here outranks any demo value and is never overwritten by one.
+ */
+function PostUtmeCell({ row, quotaId, onSaved }) {
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(row.postUtmeScore ?? '');
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const score = Number(value);
+    if (value === '' || Number.isNaN(score) || score < 0) {
+      return toast.error('Enter a Post-UTME score');
+    }
+    setSaving(true);
+    try {
+      await api.patch(`/quotas/${quotaId}/admissions/${row.id}/post-utme`, { score, maxScore: 100 });
+      toast.success(`Post-UTME recorded for ${row.applicantName}`);
+      setEditing(false);
+      onSaved?.();
+    } catch (err) {
+      toast.error(errMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => { setValue(row.postUtmeScore ?? ''); setEditing(true); }}
+        aria-label={`${row.postUtmeScore != null ? 'Change' : 'Set'} the Post-UTME score for ${row.applicantName}`}
+        title={`Set a Post-UTME score for ${row.applicantName}`}
+        className="flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1 text-left transition hover:border-border hover:bg-white"
+      >
+        <span className={row.postUtmeScore != null ? 'font-semibold text-ink' : 'text-muted'}>
+          {row.postUtmeScore ?? 'Set'}
+        </span>
+        {row.postUtmeSource === 'mock' && (
+          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-warning">demo</span>
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="number" min="0" max="100" autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        className="w-16 rounded-lg border border-border px-2 py-1 text-sm"
+        aria-label={`Post-UTME score for ${row.applicantName}`}
+      />
+      <Button size="sm" onClick={save} loading={saving}>Save</Button>
+      <button type="button" onClick={() => setEditing(false)} className="px-1 text-muted hover:text-ink" aria-label="Cancel">
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }

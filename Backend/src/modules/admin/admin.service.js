@@ -321,10 +321,18 @@ async function auditLogs(q) {
 
 /* --------------------------- Mock data mgmt ---------------------------- */
 
+// The regulator datasets that still have demo records. NIN is excluded: it is
+// verified live through Dojah.
+const MOCK_TABLES = {
+  jamb: 'mock_jamb_records',
+  olevel: 'mock_olevel_records',
+  'post-utme': 'mock_post_utme_records',
+};
+
 async function listMock(kind, q) {
   // NIN is verified live through Dojah, so it has no demo dataset. Only the
   // exam bodies (JAMB, WAEC/NECO/NABTEB) are still stubbed pending their APIs.
-  const table = { jamb: 'mock_jamb_records', olevel: 'mock_olevel_records' }[kind];
+  const table = MOCK_TABLES[kind];
   if (!table) {
     throw ApiError.badRequest(
       kind === 'nin'
@@ -411,6 +419,22 @@ async function createMock(kind, body) {
       [body.examType, body.regNo, body.fullName, JSON.stringify(body.results || []), body.examYear || null]
     );
   }
+  if (kind === 'post-utme') {
+    // Keyed by JAMB registration number so one demo candidate lines up across
+    // the JAMB, O'Level and Post-UTME stubs. Without these, the
+    // "JAMB + Post-UTME average" rule ranked everyone with a Post-UTME of
+    // zero and could not be rehearsed at all.
+    return queryOne(
+      `INSERT INTO mock_post_utme_records (jamb_reg_no, full_name, score, max_score, exam_year)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (jamb_reg_no) DO UPDATE SET
+         full_name = EXCLUDED.full_name, score = EXCLUDED.score,
+         max_score = EXCLUDED.max_score, exam_year = EXCLUDED.exam_year
+       RETURNING *`,
+      [body.jambRegNo || body.regNo, body.fullName || null, body.score,
+       body.maxScore || 100, body.examYear || null]
+    );
+  }
   if (kind === 'nin') {
     return queryOne(
       `INSERT INTO mock_nin_records (nin, first_name, last_name, middle_name, date_of_birth, gender, state_of_origin, phone)
@@ -423,7 +447,7 @@ async function createMock(kind, body) {
 }
 
 async function deleteMock(kind, id) {
-  const table = { jamb: 'mock_jamb_records', olevel: 'mock_olevel_records' }[kind];
+  const table = MOCK_TABLES[kind];
   if (!table) throw ApiError.badRequest('Invalid mock data kind');
   const row = await queryOne(`DELETE FROM ${table} WHERE id = $1 RETURNING id`, [id]);
   if (!row) throw ApiError.notFound('Mock record not found');

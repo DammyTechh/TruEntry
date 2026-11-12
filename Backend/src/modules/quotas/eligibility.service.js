@@ -30,13 +30,88 @@ function toIsoDate(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
 }
 
+/**
+ * The same subject goes by several names. An institution types "Maths" into a
+ * department's requirements; WAEC returns "Mathematics". Comparing the raw
+ * strings marked the requirement unmet, so candidates who plainly qualified
+ * were refused and admissions processing found nobody to admit.
+ *
+ * Every name on a row below is the same subject. The first entry is the
+ * canonical form used for comparison.
+ */
+const SUBJECT_ALIASES = [
+  ['mathematics', 'maths', 'math', 'general mathematics', 'core mathematics', 'gen maths'],
+  ['english language', 'english', 'eng', 'eng language', 'use of english', 'english lang'],
+  ['further mathematics', 'further maths', 'f maths', 'add maths', 'additional mathematics'],
+  ['literature in english', 'literature', 'lit in english', 'lit'],
+  ['civic education', 'civics', 'civic'],
+  ['economics', 'econs', 'economic'],
+  ['agricultural science', 'agric science', 'agriculture', 'agric'],
+  ['physics', 'phy'],
+  ['chemistry', 'chem'],
+  ['biology', 'bio'],
+  ['geography', 'geo'],
+  ['government', 'govt'],
+  ['commerce', 'commerce studies'],
+  ['financial accounting', 'accounting', 'accounts', 'principles of accounts', 'poa'],
+  ['christian religious studies', 'crs', 'christian religious knowledge', 'crk'],
+  ['islamic religious studies', 'irs', 'islamic studies', 'islamic religious knowledge', 'irk'],
+  ['computer studies', 'computer science', 'computer', 'ict', 'data processing'],
+  ['technical drawing', 'tech drawing', 'td'],
+  ['food and nutrition', 'food & nutrition', 'foods and nutrition'],
+  ['home economics', 'home econs'],
+  ['yoruba', 'yoruba language'],
+  ['igbo', 'ibo', 'igbo language'],
+  ['hausa', 'hausa language'],
+  ['fine art', 'fine arts', 'visual art', 'visual arts', 'art'],
+  ['history', 'hist'],
+  ['marketing'],
+  ['book keeping', 'bookkeeping'],
+];
+
+const ALIAS_TO_CANONICAL = (() => {
+  const map = new Map();
+  for (const row of SUBJECT_ALIASES) {
+    for (const name of row) map.set(name, row[0]);
+  }
+  return map;
+})();
+
+/** Lower-case, collapse whitespace, drop punctuation that varies by source. */
 function normaliseSubject(s) {
-  return String(s || '').trim().toLowerCase();
+  return String(s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[._]/g, ' ')
+    .replace(/\s*&\s*/g, ' and ')
+    .replace(/\s+/g, ' ');
+}
+
+/** The agreed name for a subject, whichever of its aliases was supplied. */
+function canonicalSubject(s) {
+  const n = normaliseSubject(s);
+  return ALIAS_TO_CANONICAL.get(n) || n;
+}
+
+/**
+ * Do these two subject names refer to the same subject?
+ *
+ * Matching is symmetric on purpose: "Maths" must find "Mathematics" and
+ * "Mathematics" must find "Maths". The old one-directional prefix test only
+ * worked in one of those directions.
+ */
+function sameSubject(a, b) {
+  const x = canonicalSubject(a);
+  const y = canonicalSubject(b);
+  if (x === y) return true;
+  // Fall back to a prefix match for names not in the table above, e.g. a
+  // requirement of "Chemistry" against a result of "Chemistry (Practical)".
+  return x.startsWith(y) || y.startsWith(x);
 }
 
 function isCore(subject) {
-  const s = normaliseSubject(subject);
-  return CORE_SUBJECTS.some((c) => s === c || s.startsWith(c));
+  const s = canonicalSubject(subject);
+  return CORE_SUBJECTS.some((c) => s === canonicalSubject(c));
 }
 
 /**
@@ -47,7 +122,10 @@ function mergeSittings(sittings = []) {
   const best = new Map();
   for (const sitting of sittings) {
     for (const r of sitting.results || []) {
-      const key = normaliseSubject(r.subject);
+      // Key on the canonical name so "Maths" from one sitting and
+      // "Mathematics" from another are the same subject, and the better of
+      // the two grades wins rather than both being kept.
+      const key = canonicalSubject(r.subject);
       const rank = GRADE_RANK[String(r.grade || '').toUpperCase()] ?? 99;
       const current = best.get(key);
       if (!current || rank < current.rank) {
@@ -132,10 +210,7 @@ function evaluate({ quota, requirements = [], choicePositions = [], applicant, d
     const belowGrade = [];
 
     for (const req of deptRequirements) {
-      const needle = normaliseSubject(req.subject);
-      const held = merged.find(
-        (m) => normaliseSubject(m.subject) === needle || normaliseSubject(m.subject).startsWith(needle)
-      );
+      const held = merged.find((m) => sameSubject(m.subject, req.subject));
       const minRank = GRADE_RANK[String(req.minimum_grade || 'C6').toUpperCase()] ?? 6;
 
       if (!held) {
@@ -179,8 +254,8 @@ function evaluate({ quota, requirements = [], choicePositions = [], applicant, d
     if (req.subject_group === 'core') {
       // Every core subject must be present and meet the minimum grade.
       const coreHeld = merged.filter((m) => isCore(m.subject));
-      const missing = ['mathematics', 'english'].filter(
-        (needle) => !coreHeld.some((m) => normaliseSubject(m.subject).startsWith(needle))
+      const missing = ['Mathematics', 'English Language'].filter(
+        (needle) => !coreHeld.some((m) => sameSubject(m.subject, needle))
       );
       if (missing.length) {
         reasons.push(`Missing compulsory subject(s): ${missing.join(', ')}.`);
@@ -290,4 +365,5 @@ async function checkApplicant({ institutionId, departmentId, applicant }) {
 
 module.exports = {
   evaluate, mergeSittings, classifyCategory, checkApplicant, loadDepartment, GRADE_RANK,
+  canonicalSubject, sameSubject, SUBJECT_ALIASES,
 };

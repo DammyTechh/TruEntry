@@ -138,3 +138,56 @@
  *       200: { description: Offer declined }
  *       400: { description: The offer has already been answered }
  */
+
+/**
+ * @openapi
+ * /quotas/{id}/admissions/{applicationId}/post-utme:
+ *   patch:
+ *     tags: [Admissions]
+ *     summary: Record a Post-UTME score from the admissions list
+ *     description: >
+ *       Institutions run their own Post-UTME, and a cycle ranked on the
+ *       JAMB + Post-UTME average is meaningless until the scores are in. A
+ *       score recorded here is tagged `officer` and is never overwritten by a
+ *       demo record. The aggregate is recalculated immediately, putting JAMB
+ *       (out of 400) and Post-UTME (out of `maxScore`) on the same 100-point
+ *       scale before averaging.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string, format: uuid }, description: Admission cycle }
+ *       - { in: path, name: applicationId, required: true, schema: { type: string, format: uuid } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [score]
+ *             properties:
+ *               score:    { type: number, minimum: 0, example: 72 }
+ *               maxScore: { type: number, minimum: 1, default: 100 }
+ *     responses:
+ *       200: { description: Score recorded, aggregate recalculated }
+ *       400: { description: The score exceeds the maximum }
+ *       404: { description: Application not found }
+ *
+ * /sessions/{id}/revalidate-jamb:
+ *   post:
+ *     tags: [Sessions]
+ *     summary: Re-check JAMB after a change of course or institution
+ *     description: >
+ *       Verification takes a snapshot of the candidate's JAMB choices. A
+ *       candidate who then changes course or institution at JAMB could only
+ *       apply for what they had already abandoned. This re-reads the JAMB
+ *       record and refreshes the score and choices on the session.
+ *
+ *       Free — the credentials were already paid for — and the O'Level
+ *       results are untouched, since a JAMB change does not affect them.
+ *       Every re-check is written to `jamb_recheck_log` for audit.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+ *     responses:
+ *       200:
+ *         description: Re-checked. `changed` says whether anything moved.
+ *       400: { description: The session has not been verified yet }
+ *       404: { description: JAMB record not found }
+ */

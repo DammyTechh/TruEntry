@@ -109,6 +109,9 @@ async function listApplicants(institutionId, quotaId, { page = 1, limit = 20, de
       jambRegNo: r.jamb_reg_no,
       jambScore: r.jamb_score != null ? Number(r.jamb_score) : null,
       postUtmeScore: r.post_utme_score != null ? Number(r.post_utme_score) : null,
+      // 'officer' (typed in), 'mock' (a demo record) or null. Lets the list
+      // mark demo scores so they are never mistaken for real ones.
+      postUtmeSource: r.post_utme_source || null,
       aggregateScore: r.aggregate_score != null ? Number(r.aggregate_score) : null,
       rankingScore: rankingScore(r, quota.admission_rule),
       choicePosition: r.choice_position,
@@ -156,6 +159,16 @@ async function process(institutionId, quotaId, { commit = false, departmentId } 
       ORDER BY d.name`,
     params
   );
+
+  // When the cycle ranks on JAMB + Post-UTME, fill in any score that has not
+  // been recorded yet from the Post-UTME demo records (matched on the JAMB
+  // registration number). Without this every candidate ranks with a
+  // Post-UTME of zero, which made the rule impossible to rehearse. A real
+  // score entered by an officer is never overwritten. This runs for the dry
+  // run too, so the preview shows the same ranking the commit will produce.
+  if (quota.admission_rule === 'jamb_postutme_average') {
+    await backfillPostUtmeFromMock(quotaId);
+  }
 
   const results = [];
 
@@ -332,6 +345,75 @@ async function process(institutionId, quotaId, { commit = false, departmentId } 
     changeOffersRaised: writtenOffers.length,
     results,
     changeOffers: writtenOffers,
+  };
+}
+
+/* ------------------------------------------------------------------------ */
+/* Post-UTME scores                                                          */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Fill in missing Post-UTME scores from the demo records, matched on the
+ * candidate's JAMB registration number.
+ *
+ * Only applications with no score yet are touched, and each one is tagged
+ * `post_utme_source = 'mock'` so a demo score can never be mistaken for one
+ * an officer actually recorded.
+ */
+async function backfillPostUtmeFromMock(quotaId) {
+  // The JAMB registration number lives on the applicant's profile, not on the
+  // application, so the demo record is matched through it.
+  const { rowCount } = await query(
+    `UPDATE applications a
+        SET post_utme_score = m.score,
+            post_utme_source = 'mock',
+            -- JAMB is out of 400 and Post-UTME out of max_score; put both on
+            -- the same 100-point scale before averaging.
+            aggregate_score = ROUND(
+              ((COALESCE(a.jamb_score,0) / 400.0 * 100) + (m.score / m.max_score * 100)) / 2.0, 2)
+       FROM applicant_profiles p
+       JOIN mock_post_utme_records m ON m.jamb_reg_no = p.jamb_reg_no
+      WHERE a.quota_id = $1
+        AND a.post_utme_score IS NULL
+        AND p.user_id = a.applicant_id`,
+    [quotaId]
+  );
+  if (rowCount) logger.info('Post-UTME scores filled from demo records', { quotaId, count: rowCount });
+  return rowCount;
+}
+
+/**
+ * Record a Post-UTME score against one application, straight from the
+ * institution's admissions list. The officer flow (consider → score) still
+ * exists; this is the direct route institutions asked for.
+ */
+async function setPostUtmeScore(institutionId, applicationId, { score, maxScore = 100 }) {
+  const app = await queryOne(
+    'SELECT * FROM applications WHERE id = $1 AND institution_id = $2',
+    [applicationId, institutionId]
+  );
+  if (!app) throw ApiError.notFound('Application not found');
+  if (Number(score) > Number(maxScore)) {
+    throw ApiError.badRequest(`A Post-UTME score cannot exceed the maximum of ${maxScore}`, {
+      code: 'SCORE_ABOVE_MAX',
+    });
+  }
+
+  const jamb100 = (Number(app.jamb_score || 0) / 400) * 100;
+  const post100 = (Number(score) / Number(maxScore || 100)) * 100;
+  const aggregate = Math.round(((jamb100 + post100) / 2) * 100) / 100;
+
+  const row = await queryOne(
+    `UPDATE applications
+        SET post_utme_score = $1, aggregate_score = $2, post_utme_source = 'officer'
+      WHERE id = $3 RETURNING *`,
+    [score, aggregate, applicationId]
+  );
+  return {
+    applicationId: row.id,
+    postUtmeScore: Number(row.post_utme_score),
+    aggregateScore: Number(row.aggregate_score),
+    source: row.post_utme_source,
   };
 }
 
@@ -770,4 +852,5 @@ module.exports = {
   listApplicants, process, decide, switchDepartment, close, summary,
   rankingScore, seatsByCategory,
   listChangeOffers, listOffersForApplicant, respondToChangeOffer,
+  setPostUtmeScore, backfillPostUtmeFromMock,
 };

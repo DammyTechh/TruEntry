@@ -43,9 +43,34 @@ the button reads **Continue** instead of **Proceed to Payment**.
    institutions and departments that exist on TruEntry).
 2. Admin → Mock data → **O-Level**: add the result for the O'Level number the
    applicant will enter.
-3. The applicant onboards with any 11-digit NIN, enters those two numbers, and
+3. Admin → Mock data → **Post-UTME** *(only for cycles ranked on the
+   JAMB + Post-UTME average)*: add a score against the same JAMB number.
+   Without one, every candidate ranks with a Post-UTME of zero.
+4. The applicant onboards with any 11-digit NIN, enters those two numbers, and
    continues through the free checkout. After verification their choices appear
    and they can apply.
+
+### Changing course or institution mid-test
+
+If you edit the JAMB record's choices after the applicant has verified, they
+will still see the old ones — verification took a snapshot. On the apply
+screen, **Re-check JAMB** pulls the new choices through. It is free and leaves
+the O'Level results alone.
+
+### Processing an admission
+
+Scores and requirements have to line up or nobody is admitted:
+
+- **Subject names do not have to match exactly.** "Maths" in a department's
+  requirements matches "Mathematics" on a WAEC result, and vice versa; the
+  common Nigerian aliases (English/English Language, Econs/Economics, CRS, …)
+  are all understood.
+- **Post-UTME scores** come either from the demo records above or from the
+  Post-UTME column in the institution's admissions list, where an officer can
+  type one in. A typed score always wins over a demo one, and demo scores are
+  marked as such.
+- The cycle must be **open, closed or processing**, and the department must be
+  selected in it with seats allocated.
 
 ## Telling test data apart afterwards
 

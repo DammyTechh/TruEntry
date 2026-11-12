@@ -11,6 +11,7 @@ import api, { errMessage, fieldErrors } from '../../lib/api';
 const KINDS = [
   { key: 'jamb', label: 'JAMB' },
   { key: 'olevel', label: 'O-Level' },
+  { key: 'post-utme', label: 'Post-UTME' },
 ];
 
 const ORDINAL = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th' };
@@ -24,6 +25,10 @@ const EMPTY = {
     examType: 'waec', regNo: '', fullName: '', examYear: '',
     resultsText: 'English Language:C4, Mathematics:B3, Physics:B3, Chemistry:C4, Biology:B2',
   },
+  // Demo Post-UTME scores, keyed by the SAME JAMB number as the JAMB record,
+  // so one candidate carries through every stage of a rehearsal. Without
+  // these the "JAMB + Post-UTME average" rule ranked everyone at zero.
+  'post-utme': { regNo: '', fullName: '', score: '', maxScore: 100, examYear: '' },
 };
 
 /**
@@ -70,7 +75,11 @@ export default function Mock() {
   }
 
   function openEdit(row) {
-    setForm(kind === 'jamb' ? jambRowToForm(row) : olevelRowToForm(row));
+    setForm(
+      kind === 'jamb' ? jambRowToForm(row)
+        : kind === 'post-utme' ? postUtmeRowToForm(row)
+          : olevelRowToForm(row)
+    );
     setEditingId(row.id);
     setErrors({});
     setOpen(true);
@@ -132,13 +141,17 @@ export default function Mock() {
       ) : rows.length === 0 ? (
         <EmptyState
           title="No records"
-          message={kind === 'jamb'
-            ? 'Add a JAMB record with the institution and course the applicant chose.'
-            : 'Add the O’Level result an applicant will verify.'}
+          message={{
+            jamb: 'Add a JAMB record with the institution and course the applicant chose.',
+            olevel: 'Add the O’Level result an applicant will verify.',
+            'post-utme': 'Add a Post-UTME score so cycles ranked on the JAMB + Post-UTME average can be processed.',
+          }[kind]}
           action={<Button onClick={openCreate}>Add record</Button>}
         />
       ) : kind === 'jamb' ? (
         <JambTable rows={rows} onEdit={openEdit} onDelete={setDeleting} />
+      ) : kind === 'post-utme' ? (
+        <PostUtmeTable rows={rows} onEdit={openEdit} onDelete={setDeleting} />
       ) : (
         <OlevelTable rows={rows} onEdit={openEdit} onDelete={setDeleting} />
       )}
@@ -157,7 +170,9 @@ export default function Mock() {
       >
         {kind === 'jamb'
           ? <JambForm form={form} setForm={setForm} errors={errors} lockRegNo={!!editingId} />
-          : <OlevelForm form={form} setForm={setForm} errors={errors} lockRegNo={!!editingId} />}
+          : kind === 'post-utme'
+            ? <PostUtmeForm form={form} setForm={setForm} errors={errors} lockRegNo={!!editingId} />
+            : <OlevelForm form={form} setForm={setForm} errors={errors} lockRegNo={!!editingId} />}
       </Modal>
 
       <Modal
@@ -274,6 +289,35 @@ function OlevelTable({ rows, onEdit, onDelete }) {
   );
 }
 
+function PostUtmeTable({ rows, onEdit, onDelete }) {
+  return (
+    <div className="card overflow-x-auto p-0">
+      <table className="w-full min-w-[700px] text-sm">
+        <thead className="bg-primary-surface text-left text-xs uppercase tracking-wide text-muted">
+          <tr>
+            <th className="px-4 py-3">JAMB reg number</th>
+            <th className="px-4 py-3">Name</th>
+            <th className="px-4 py-3">Score</th>
+            <th className="px-4 py-3">Out of</th>
+            <th className="px-4 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {rows.map((r) => (
+            <tr key={r.id} className="hover:bg-primary-surface">
+              <td className="px-4 py-3 font-mono text-xs text-ink">{r.jamb_reg_no}</td>
+              <td className="px-4 py-3 text-ink">{r.full_name || '—'}</td>
+              <td className="px-4 py-3 font-medium text-ink">{Number(r.score)}</td>
+              <td className="px-4 py-3 text-muted">{Number(r.max_score)}</td>
+              <td className="px-4 py-3"><RowActions row={r} onEdit={onEdit} onDelete={onDelete} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /* ---------------------------------- Forms --------------------------------- */
 
 function jambRowToForm(r) {
@@ -296,6 +340,16 @@ function jambRowToForm(r) {
     stateOfOrigin: r.state_of_origin || '',
     examYear: r.exam_year ? String(r.exam_year) : '',
     choices,
+  };
+}
+
+function postUtmeRowToForm(r) {
+  return {
+    regNo: r.jamb_reg_no || '',
+    fullName: r.full_name || '',
+    score: r.score != null ? Number(r.score) : '',
+    maxScore: r.max_score != null ? Number(r.max_score) : 100,
+    examYear: r.exam_year || '',
   };
 }
 
@@ -339,6 +393,28 @@ function buildBody(kind, f) {
           institutionId: c.institutionId,
           departmentId: c.departmentId || undefined,
         })),
+      },
+    };
+  }
+
+  if (kind === 'post-utme') {
+    const score = Number(f.score);
+    const maxScore = Number(f.maxScore) || 100;
+    if (f.score === '' || Number.isNaN(score) || score < 0) {
+      problems.score = 'Enter the Post-UTME score.';
+    } else if (score > maxScore) {
+      problems.score = `The score cannot be more than the maximum of ${maxScore}.`;
+    }
+    // Name is optional here: the candidate is identified by the JAMB number.
+    delete problems.fullName;
+    return {
+      problems,
+      body: {
+        regNo: (f.regNo || '').trim(),
+        fullName: (f.fullName || '').trim() || undefined,
+        score,
+        maxScore,
+        examYear: f.examYear ? Number(f.examYear) : undefined,
       },
     };
   }
@@ -505,6 +581,59 @@ function JambForm({ form, setForm, errors, lockRegNo }) {
 
       <p className="text-xs text-muted">
         The applicant also needs a matching O’Level record (O-Level tab) for the registration number they enter at onboarding.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * A demo Post-UTME score. It is keyed by the candidate's JAMB registration
+ * number — the same one on their JAMB record — so an admission cycle ranked
+ * on the JAMB + Post-UTME average has a real score to work with instead of
+ * treating everybody as zero.
+ */
+function PostUtmeForm({ form, setForm, errors, lockRegNo }) {
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const score = Number(form.score);
+  const max = Number(form.maxScore) || 100;
+  const asPercent = form.score !== '' && !Number.isNaN(score)
+    ? Math.round((score / max) * 1000) / 10
+    : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <Input
+            label="JAMB registration number"
+            value={form.regNo}
+            onChange={set('regNo')}
+            required
+            error={errors.regNo}
+            disabled={lockRegNo}
+            hint="Must match the candidate’s JAMB record exactly — that is how the score is matched."
+          />
+        </div>
+        <div className="col-span-2">
+          <Input label="Full name (optional)" value={form.fullName} onChange={set('fullName')} />
+        </div>
+        <Input label="Score" type="number" min="0" value={form.score} onChange={set('score')} required error={errors.score} />
+        <Input label="Out of" type="number" min="1" value={form.maxScore} onChange={set('maxScore')} hint="Usually 100" />
+        <div className="col-span-2">
+          <Input label="Exam year" type="number" value={form.examYear} onChange={set('examYear')} placeholder="2025" />
+        </div>
+      </div>
+
+      {asPercent !== null && (
+        <div className="flex items-center justify-between rounded-xl bg-primary-surface px-4 py-3 text-sm">
+          <span className="text-muted">Counts as</span>
+          <span className="font-semibold text-ink">{asPercent}%</span>
+        </div>
+      )}
+
+      <p className="text-xs text-muted">
+        Used only by cycles whose admission rule is <strong>JAMB + Post-UTME average</strong>. A score an
+        officer types into the admissions list always takes priority over this demo value.
       </p>
     </div>
   );

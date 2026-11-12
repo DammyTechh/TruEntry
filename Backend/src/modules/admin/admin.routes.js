@@ -72,8 +72,29 @@ const mockOlevelSchema = z.object({
   examYear: z.coerce.number().optional(),
 });
 // NIN is live (Dojah) — only the exam bodies remain stubbed.
+// Demo Post-UTME scores, so the "JAMB + Post-UTME average" admission rule can
+// actually be rehearsed. Keyed by JAMB registration number, matching the JAMB
+// mock, so one demo candidate carries through the whole cycle.
+const mockPostUtmeSchema = z.object({
+  // Either name works: the JAMB mock calls this field `regNo`, so accepting
+  // both keeps the two forms interchangeable.
+  jambRegNo: z.string().trim().min(6).max(30).optional(),
+  regNo: z.string().trim().min(6).max(30).optional(),
+  fullName: z.string().trim().max(160).optional(),
+  score: z.coerce.number().min(0).max(1000),
+  maxScore: z.coerce.number().min(1).max(1000).default(100),
+  examYear: z.coerce.number().int().min(1990).max(2100).optional(),
+}).refine((v) => v.jambRegNo || v.regNo, {
+  message: 'A JAMB registration number is required',
+  path: ['jambRegNo'],
+});
+
 function mockSchemaFor(kind) {
-  return { jamb: mockJambSchema, olevel: mockOlevelSchema }[kind];
+  return {
+    jamb: mockJambSchema,
+    olevel: mockOlevelSchema,
+    'post-utme': mockPostUtmeSchema,
+  }[kind];
 }
 
 

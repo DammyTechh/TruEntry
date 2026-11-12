@@ -227,6 +227,7 @@ async function verify(applicantId, sessionId, input) {
       `UPDATE application_sessions
           SET status = 'verified', jamb_verified = TRUE, olevel_verified = TRUE,
               jamb_score = $1, jamb_choices = $2::jsonb, olevel_sittings = $3::jsonb,
+              jamb_reg_no = $5,
               verification_error = NULL, verified_at = NOW()
         WHERE id = $4
         RETURNING *`,
@@ -235,6 +236,9 @@ async function verify(applicantId, sessionId, input) {
         JSON.stringify(jamb.choices || []),
         JSON.stringify(results),
         sessionId,
+        // Remembered so a later JAMB re-check knows what to look up without
+        // asking the applicant to type the number again.
+        String(input.jambRegNo).trim(),
       ]
     );
 
@@ -302,6 +306,82 @@ async function verify(applicantId, sessionId, input) {
 
     throw err;
   }
+}
+
+/**
+ * Re-check a candidate's JAMB record after verification.
+ *
+ * A candidate who changes course or institution at JAMB was stuck: the
+ * session kept the snapshot taken at verification and nothing could pull the
+ * new choices through, so they could only apply for courses they had already
+ * abandoned. This re-reads the JAMB record and refreshes the score and the
+ * choices on the session.
+ *
+ * It is free — the applicant already paid to have these credentials verified
+ * — and the O'Level results are left untouched, since a JAMB change does not
+ * alter them. Every re-check is logged so a change of course can be explained
+ * afterwards.
+ */
+async function revalidateJamb(applicantId, sessionId) {
+  const session = await queryOne(
+    'SELECT * FROM application_sessions WHERE id = $1 AND applicant_id = $2',
+    [sessionId, applicantId]
+  );
+  if (!session) throw ApiError.notFound('Session not found');
+
+  if (!['verified', 'completed'].includes(session.status)) {
+    throw ApiError.badRequest(
+      'Your credentials have to be verified before they can be re-checked.',
+      { code: 'NOT_VERIFIED' }
+    );
+  }
+
+  const regNo = session.jamb_reg_no
+    || (await queryOne('SELECT jamb_reg_no FROM applicant_profiles WHERE user_id = $1', [applicantId]))?.jamb_reg_no;
+  if (!regNo) {
+    throw ApiError.badRequest('No JAMB registration number is on file for this application', {
+      code: 'NO_JAMB_REG',
+    });
+  }
+
+  const fresh = await regulator.verifyJamb(regNo);
+  const previousChoices = session.jamb_choices || [];
+  const newChoices = fresh.choices || [];
+  const previousScore = session.jamb_score != null ? Number(session.jamb_score) : null;
+  const newScore = fresh.score ?? fresh.jambScore ?? null;
+
+  const key = (list) => JSON.stringify(list.map((c) => [c.institution, c.course]));
+  const changed = key(previousChoices) !== key(newChoices) || Number(newScore) !== Number(previousScore);
+
+  const row = await queryOne(
+    `UPDATE application_sessions
+        SET jamb_score = $1, jamb_choices = $2::jsonb, jamb_reg_no = $3, last_rechecked_at = NOW()
+      WHERE id = $4 RETURNING *`,
+    [newScore, JSON.stringify(newChoices), regNo, sessionId]
+  );
+
+  await query(
+    `INSERT INTO jamb_recheck_log
+       (session_id, applicant_id, jamb_reg_no, previous_score, new_score,
+        previous_choices, new_choices, changed)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8)`,
+    [sessionId, applicantId, regNo, previousScore, newScore,
+     JSON.stringify(previousChoices), JSON.stringify(newChoices), changed]
+  );
+
+  // Keep the profile's copy in step with the session.
+  await query('UPDATE applicant_profiles SET jamb_data = $1::jsonb WHERE user_id = $2',
+    [JSON.stringify(fresh), applicantId]);
+
+  logger.info('JAMB re-checked', { sessionId, changed, choices: newChoices.length });
+
+  return {
+    changed,
+    checkedAt: row.last_rechecked_at,
+    previous: { jambScore: previousScore, choices: previousChoices.length },
+    current: { jambScore: newScore, choices: newChoices.length },
+    session: shape(row),
+  };
 }
 
 /**
@@ -509,4 +589,5 @@ async function apply(applicantId, sessionId, { institutionId, departmentId, choi
 
 module.exports = {
   quote, current, start, setSittingType, markPaid, verify, choices, apply, shape, platformFees,
+  revalidateJamb,
 };

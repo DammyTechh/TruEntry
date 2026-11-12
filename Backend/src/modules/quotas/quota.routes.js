@@ -220,6 +220,21 @@ router.post('/:id/admissions/process', validate({ body: processSchema }), asyncH
   });
 }));
 
+// Record a Post-UTME score straight from the admissions list. Institutions run
+// their own Post-UTME, so this is the direct route; the older
+// consider → score officer flow still works unchanged.
+router.patch('/:id/admissions/:applicationId/post-utme',
+  validate({ body: z.object({
+    score: z.coerce.number().min(0).max(1000),
+    maxScore: z.coerce.number().min(1).max(1000).default(100),
+  }) }),
+  asyncHandler(async (req, res) => {
+    const data = await admissions.setPostUtmeScore(
+      institutionId(req), req.params.applicationId, req.body
+    );
+    return success(res, { message: 'Post-UTME score recorded', data });
+  }));
+
 // Change-of-course offers raised by the second pass of processing: seats that
 // were still empty after every applicant had been considered against the
 // department they actually applied to.

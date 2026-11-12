@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CreditCard, ShieldCheck, ListChecks, CheckCircle2, AlertTriangle, Info,
-  ArrowRight, Building2,
+  ArrowRight, Building2, RefreshCw,
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, Button, Badge } from '../../components/ui/Primitives';
@@ -355,6 +355,7 @@ function ChoicesStep({ session, onApplied }) {
   const [choices, setChoices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applyingId, setApplyingId] = useState(null);
+  const [rechecking, setRechecking] = useState(false);
 
   async function load() {
     try {
@@ -367,6 +368,31 @@ function ChoicesStep({ session, onApplied }) {
     }
   }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  /**
+   * Pull the candidate's JAMB record again.
+   *
+   * The choices below are a snapshot taken when the credentials were
+   * verified. A candidate who then changes course or institution at JAMB was
+   * stuck applying for the course they had abandoned; this brings the new
+   * one through. It is free — the verification was already paid for.
+   */
+  async function recheckJamb() {
+    setRechecking(true);
+    try {
+      const { data } = await api.post(`/sessions/${session.id}/revalidate-jamb`);
+      if (data.data?.changed) {
+        toast.success('Your JAMB record has changed — your choices below are updated.');
+      } else {
+        toast.success('Your JAMB record is unchanged.');
+      }
+      await load();
+    } catch (err) {
+      toast.error(errMessage(err));
+    } finally {
+      setRechecking(false);
+    }
+  }
 
   async function apply(choice) {
     setApplyingId(choice.institutionId + choice.choicePosition);
@@ -397,20 +423,42 @@ function ChoicesStep({ session, onApplied }) {
 
   return (
     <div>
-      <div className="mb-5 flex gap-3 rounded-xl border border-border bg-white p-4">
+      <div className="mb-5 flex flex-col gap-3 rounded-xl border border-border bg-white p-4 sm:flex-row sm:items-start">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
-        <div className="text-sm">
+        <div className="min-w-0 flex-1 text-sm">
           <p className="font-semibold text-ink">Credentials verified</p>
           <p className="text-muted">
             JAMB score <strong className="text-ink">{session?.verification?.jambScore ?? '—'}</strong>. These are the
             choices you made when registering for JAMB.
           </p>
+          <p className="mt-1 text-xs text-muted">
+            Changed your course or institution at JAMB since then? Re-check to pull the new choices through —
+            there is no charge.
+          </p>
         </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={recheckJamb}
+          loading={rechecking}
+          className="shrink-0"
+        >
+          <RefreshCw className="h-4 w-4" /> Re-check JAMB
+        </Button>
       </div>
 
       {(!choices || choices.length === 0) && (
         <Card className="p-8 text-center">
-          <p className="text-muted">No JAMB choices were returned for your registration number.</p>
+          <AlertTriangle className="mx-auto h-8 w-8 text-warning" />
+          <h3 className="mt-3 font-semibold text-ink">No institution choices came back from JAMB</h3>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+            Your credentials were verified, but the JAMB record for your registration number carries no
+            institution or course selections, so there is nothing to apply for yet.
+          </p>
+          <p className="mx-auto mt-3 max-w-md text-sm text-muted">
+            If you have just changed course or institution at JAMB, use <strong>Re-check JAMB</strong> above.
+            Otherwise contact support — you will not be charged again.
+          </p>
         </Card>
       )}
 

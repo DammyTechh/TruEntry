@@ -64,6 +64,24 @@ router.patch('/:id/sitting-type', validate({ body: sittingSchema }), asyncHandle
 }));
 
 /** Verify JAMB + O'Level. Only permitted once the session is paid. */
+/**
+ * Re-check JAMB after a change of course or institution.
+ *
+ * Verification takes a snapshot of the candidate's JAMB choices. If they then
+ * change course or institution at JAMB, this pulls the new choices through so
+ * they can apply for what they actually chose. Free — the credentials were
+ * already paid for — and it leaves the O'Level results alone.
+ */
+router.post('/:id/revalidate-jamb', asyncHandler(async (req, res) => {
+  const data = await service.revalidateJamb(req.user.id, req.params.id);
+  return success(res, {
+    message: data.changed
+      ? 'Your JAMB record has changed — your choices have been updated'
+      : 'Your JAMB record is unchanged',
+    data,
+  });
+}));
+
 router.post('/:id/verify', validate({ body: verifySchema }), asyncHandler(async (req, res) => {
   const data = await service.verify(req.user.id, req.params.id, req.body);
   return success(res, {
