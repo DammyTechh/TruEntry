@@ -142,6 +142,7 @@ function CandidateTable({ title, tone, rows, showReasons }) {
               <th className="py-2 pr-4">Rank</th>
               <th className="py-2 pr-4">Applicant</th>
               <th className="py-2 pr-4">JAMB</th>
+              <th className="py-2 pr-4" title="O-Level passes at C6 or better">Credits</th>
               <th className="py-2 pr-4">Post-UTME</th>
               <th className="py-2 pr-4">Aggregate</th>
               <th className="py-2 pr-4">Score</th>
@@ -154,6 +155,9 @@ function CandidateTable({ title, tone, rows, showReasons }) {
                 <td className="py-2 pr-4 font-medium text-ink">{r.rank ?? '—'}</td>
                 <td className="py-2 pr-4">{r.applicantName}</td>
                 <td className="py-2 pr-4">{r.jambScore ?? '—'}</td>
+                {/* Shown so a credit-based refusal can be checked at a glance
+                    instead of being taken on trust. */}
+                <td className="py-2 pr-4">{r.credits ?? '—'}</td>
                 <td className="py-2 pr-4">{r.postUtmeScore ?? '—'}</td>
                 <td className="py-2 pr-4">{r.aggregateScore ?? '—'}</td>
                 <td className="py-2 pr-4 font-medium">{r.rankingScore ?? '—'}</td>

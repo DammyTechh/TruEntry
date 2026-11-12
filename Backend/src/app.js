@@ -130,6 +130,31 @@ app.get('/', (req, res) =>
 // Convenience unversioned health probe.
 app.use('/health', require('./modules/health/health.routes'));
 
+/**
+ * Bring the database schema up to date before serving the first request.
+ *
+ * Deploying code that expects a newer schema than the database has produces
+ * "unexpected error" notices that look like application bugs but are really
+ * missing tables, and the only cure was remembering to run the SQL by hand.
+ * This closes that gap. It is memoised, so it costs one quick query per cold
+ * start once everything is applied.
+ *
+ * MIGRATE_ON_BOOT=false restores the old manual behaviour.
+ */
+if (process.env.MIGRATE_ON_BOOT !== 'false') {
+  const { ensureSchema } = require('./config/migrations');
+  app.use(config.apiPrefix, (req, res, next) => {
+    ensureSchema()
+      .then(() => next())
+      .catch((err) => {
+        logger.error('Could not bring the database schema up to date', { error: err.message });
+        // Carry on regardless: a migration problem should not take the whole
+        // API down, and everything that does not need the new tables works.
+        next();
+      });
+  });
+}
+
 app.use(config.apiPrefix, routes);
 
 /* ------------------------- Errors (last) ------------------------------- */
