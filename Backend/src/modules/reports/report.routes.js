@@ -8,7 +8,7 @@ const validate = require('../../middleware/validate.middleware');
 const { authenticate } = require('../../middleware/auth.middleware');
 const { authorize } = require('../../middleware/rbac.middleware');
 const { recordAudit } = require('../../middleware/audit.middleware');
-const { ROLES, REPORT_TYPES } = require('../../utils/constants');
+const { ROLES, REPORT_TYPES, INSTITUTION_ROLES } = require('../../utils/constants');
 const service = require('./report.service');
 const ApiError = require('../../utils/ApiError');
 
@@ -26,7 +26,11 @@ const generateSchema = z.object({
  * must specify the institution to report on.
  */
 function resolveInstitution(req) {
-  if ([ROLES.OFFICER, ROLES.REGISTRAR].includes(req.user.role)) return req.user.institutionId;
+  // INSTITUTION_ROLES, not just officer/registrar: an admin-onboarded school
+  // signs in with the 'institution' role, and leaving it out of this list made
+  // the API demand an institutionId the Reports page never sends — so an
+  // institution could not generate any report at all.
+  if (INSTITUTION_ROLES.includes(req.user.role)) return req.user.institutionId;
   const id = req.body.institutionId || req.query.institutionId;
   if (!id) throw ApiError.badRequest('institutionId is required');
   return id;
@@ -58,7 +62,7 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const institutionId =
-      [ROLES.OFFICER, ROLES.REGISTRAR].includes(req.user.role)
+      INSTITUTION_ROLES.includes(req.user.role)
         ? req.user.institutionId
         : req.query.institutionId;
     const { data, total, page, limit } = await service.list({ institutionId }, req.query);
@@ -70,7 +74,7 @@ router.get(
   '/:id',
   asyncHandler(async (req, res) => {
     const data = await service.getOne(req.params.id);
-    if ([ROLES.OFFICER, ROLES.REGISTRAR].includes(req.user.role) &&
+    if (INSTITUTION_ROLES.includes(req.user.role) &&
         String(data.institutionId) !== String(req.user.institutionId)) {
       throw ApiError.forbidden('This report belongs to another institution');
     }

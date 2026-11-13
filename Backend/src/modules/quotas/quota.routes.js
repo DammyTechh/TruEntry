@@ -220,6 +220,13 @@ router.post('/:id/admissions/process', validate({ body: processSchema }), asyncH
   });
 }));
 
+// The admission list for a cycle: everyone admitted, grouped by course and
+// ranked within it. This is what an institution publishes after a run.
+router.get('/:id/admissions/list', asyncHandler(async (req, res) => {
+  const data = await admissions.admissionList(institutionId(req), req.params.id);
+  return success(res, { message: 'Admission list', data });
+}));
+
 // Record a Post-UTME score straight from the admissions list. Institutions run
 // their own Post-UTME, so this is the direct route; the older
 // consider → score officer flow still works unchanged.

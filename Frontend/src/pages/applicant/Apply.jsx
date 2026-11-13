@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CreditCard, ShieldCheck, ListChecks, CheckCircle2, AlertTriangle, Info,
-  ArrowRight, Building2, RefreshCw,
+  ArrowRight, Building2, RefreshCw, Download,
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, Button, Badge } from '../../components/ui/Primitives';
 import { Input, Select } from '../../components/ui/Field';
-import { PageLoader } from '../../components/ui/Misc';
+import { PageLoader, StatusBadge } from '../../components/ui/Misc';
 import { useToast } from '../../components/ui/Toast';
 import api, { errMessage } from '../../lib/api';
 
@@ -350,17 +350,113 @@ function VerifyStep({ session, onVerified }) {
 
 /* ---------------------------- Step 3: choices ---------------------------- */
 
+/**
+ * What the applicant has already submitted, and where it got to.
+ *
+ * Before this the page kept showing the bare list of JAMB choices after an
+ * application had been submitted, so a student who had applied — or been
+ * admitted — saw nothing about it and was still invited to "Apply".
+ */
+function SubmittedPanel({ applications, onChanged }) {
+  const toast = useToast();
+  const [downloading, setDownloading] = useState(null);
+
+  async function downloadLetter(application) {
+    setDownloading(application.id);
+    try {
+      const res = await api.get(`/admission-letters/${application.id}`, { responseType: 'blob' });
+      const blob = res.data;
+
+      // With cloud storage configured the API answers with a link instead of
+      // the file; without it, the PDF is streamed. Handle both.
+      if (blob.type && blob.type.includes('application/json')) {
+        const parsed = JSON.parse(await blob.text());
+        const url = parsed?.data?.url;
+        if (!url) throw new Error('No admission letter was returned.');
+        window.open(url, '_blank', 'noopener');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `admission-letter-${application.reference || application.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+      toast.success('Admission letter downloaded');
+    } catch (err) {
+      // An error body also arrives as a blob, so read it before reporting.
+      let message = errMessage(err);
+      const data = err?.response?.data;
+      if (data instanceof Blob) {
+        try { message = JSON.parse(await data.text())?.message || message; } catch { /* keep */ }
+      }
+      toast.error(message);
+    } finally {
+      setDownloading(null);
+    }
+  }
+
+  return (
+    <Card className="mb-5">
+      <h3 className="font-semibold text-ink">Your applications</h3>
+      <p className="mt-1 text-sm text-muted">
+        You have already applied. You can still apply to another of your JAMB choices below.
+      </p>
+
+      <div className="mt-4 space-y-3">
+        {applications.map((a) => {
+          const admitted = a.status === 'admitted';
+          return (
+            <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
+              <div className="min-w-0">
+                <p className="font-medium text-ink">{a.institutionName}</p>
+                <p className="text-sm text-muted">{a.departmentName} · {a.reference}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status={a.status} />
+                {admitted && (
+                  <Button size="sm" onClick={() => downloadLetter(a)} loading={downloading === a.id}>
+                    <Download className="h-4 w-4" /> Admission letter
+                  </Button>
+                )}
+                <Button variant="secondary" size="sm" to={`/app/applications/${a.id}`}>View</Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {applications.some((a) => a.status === 'admitted') && (
+        <p className="mt-3 text-xs text-muted">
+          Congratulations. Your provisional admission letter is available above and on the application itself.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 function ChoicesStep({ session, onApplied }) {
   const toast = useToast();
   const [choices, setChoices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applyingId, setApplyingId] = useState(null);
   const [rechecking, setRechecking] = useState(false);
+  const [recheckingOlevel, setRecheckingOlevel] = useState(false);
+  const [applications, setApplications] = useState([]);
 
   async function load() {
     try {
       const { data } = await api.get(`/sessions/${session.id}/choices`);
       setChoices(data.data || []);
+      // What they have already applied for. Without this the page kept
+      // offering "Apply" on a choice already submitted, with no sign of
+      // where the application had got to.
+      try {
+        const mine = await api.get('/applications/mine', { params: { limit: 50 } });
+        setApplications(mine.data?.data || []);
+      } catch { setApplications([]); }
     } catch (err) {
       toast.error(errMessage(err));
     } finally {
@@ -421,8 +517,32 @@ function ChoicesStep({ session, onApplied }) {
     elds: 'Educationally Less Developed State',
   };
 
+  /**
+   * Re-read the O'Level results. A result corrected, released or upgraded
+   * after verification never reached the application, and neither did the
+   * admission it should have earned.
+   */
+  async function recheckOlevel() {
+    setRecheckingOlevel(true);
+    try {
+      const { data } = await api.post(`/sessions/${session.id}/revalidate-olevel`);
+      toast.success(data.data?.changed
+        ? 'Your O-Level result has changed — your application has been updated.'
+        : 'Your O-Level result is unchanged.');
+      await load();
+    } catch (err) {
+      toast.error(errMessage(err));
+    } finally {
+      setRecheckingOlevel(false);
+    }
+  }
+
+  const applied = new Set(applications.map((a) => `${a.institutionId}:${a.departmentId}`));
+
   return (
     <div>
+      {applications.length > 0 && <SubmittedPanel applications={applications} onChanged={load} />}
+
       <div className="mb-5 flex flex-col gap-3 rounded-xl border border-border bg-white p-4 sm:flex-row sm:items-start">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
         <div className="min-w-0 flex-1 text-sm">
@@ -432,19 +552,18 @@ function ChoicesStep({ session, onApplied }) {
             choices you made when registering for JAMB.
           </p>
           <p className="mt-1 text-xs text-muted">
-            Changed your course or institution at JAMB since then? Re-check to pull the new choices through —
-            there is no charge.
+            Changed your course or institution at JAMB, or had an O-Level result corrected or released since
+            then? Re-check to pull the new details through — there is no charge for either.
           </p>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={recheckJamb}
-          loading={rechecking}
-          className="shrink-0"
-        >
-          <RefreshCw className="h-4 w-4" /> Re-check JAMB
-        </Button>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <Button variant="secondary" size="sm" onClick={recheckJamb} loading={rechecking}>
+            <RefreshCw className="h-4 w-4" /> Re-check JAMB
+          </Button>
+          <Button variant="secondary" size="sm" onClick={recheckOlevel} loading={recheckingOlevel}>
+            <RefreshCw className="h-4 w-4" /> Re-check O-Level
+          </Button>
+        </div>
       </div>
 
       {(!choices || choices.length === 0) && (
@@ -465,6 +584,7 @@ function ChoicesStep({ session, onApplied }) {
       <div className="space-y-4">
         {(choices || []).map((c) => {
           const key = c.institutionId + c.choicePosition;
+          const alreadyApplied = applied.has(`${c.institutionId}:${c.departmentId}`);
           return (
             <Card key={key} className="p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">

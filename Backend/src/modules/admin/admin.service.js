@@ -4,7 +4,7 @@ const { query, queryOne, queryMany, transaction } = require('../../config/databa
 const ApiError = require('../../utils/ApiError');
 const { getPagination } = require('../../utils/pagination');
 const { hashPassword, randomToken } = require('../../utils/security');
-const { ROLES } = require('../../utils/constants');
+const { ROLES, INSTITUTION_ROLES } = require('../../utils/constants');
 const emailService = require('../../services/email.service');
 const logger = require('../../config/logger');
 
@@ -143,7 +143,7 @@ async function createStaff(body, actor) {
   if (![ROLES.OFFICER, ROLES.REGISTRAR, ROLES.JAMB, ROLES.ADMIN].includes(role)) {
     throw ApiError.badRequest('Invalid staff role');
   }
-  if ([ROLES.OFFICER, ROLES.REGISTRAR].includes(role) && !body.institutionId) {
+  if (INSTITUTION_ROLES.includes(role) && !body.institutionId) {
     throw ApiError.badRequest('institutionId is required for institution staff', { code: 'INSTITUTION_REQUIRED' });
   }
   if (body.institutionId) {

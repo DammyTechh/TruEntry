@@ -393,6 +393,100 @@ function isUuid(v) {
   return typeof v === 'string' && UUID_RE.test(v);
 }
 
+/**
+ * Re-check a candidate's O'Level results after verification.
+ *
+ * The counterpart to revalidateJamb. Verification takes a snapshot of the
+ * results, so a candidate whose result was later corrected, released or
+ * upgraded by the examination body was stuck with the old one — and with any
+ * refusal that followed from it. This re-reads the sittings on file and
+ * replaces the snapshot.
+ *
+ * Free, since the applicant already paid to have these verified, and the JAMB
+ * side is left alone. An applicant may also supply different registration
+ * numbers, which is what makes a corrected or newly released result usable.
+ */
+async function revalidateOlevel(applicantId, sessionId, input = {}) {
+  const session = await queryOne(
+    'SELECT * FROM application_sessions WHERE id = $1 AND applicant_id = $2',
+    [sessionId, applicantId]
+  );
+  if (!session) throw ApiError.notFound('Session not found');
+
+  if (!['verified', 'completed'].includes(session.status)) {
+    throw ApiError.badRequest(
+      'Your credentials have to be verified before they can be re-checked.',
+      { code: 'NOT_VERIFIED' }
+    );
+  }
+
+  // Either the sittings the applicant just supplied, or the ones already on
+  // the session. Never more than the session was paid for.
+  const allowed = session.sitting_type === 'two' ? 2 : 1;
+  const supplied = Array.isArray(input.olevel) ? input.olevel : null;
+  const previous = session.olevel_sittings || [];
+  const wanted = (supplied && supplied.length ? supplied : previous)
+    .filter((s) => s && (s.examType || s.exam_type) && (s.regNo || s.reg_no))
+    .slice(0, allowed)
+    .map((s) => ({
+      examType: String(s.examType || s.exam_type).toLowerCase(),
+      regNo: String(s.regNo || s.reg_no).trim(),
+    }));
+
+  if (!wanted.length) {
+    throw ApiError.badRequest('No O-Level registration number is on file for this application', {
+      code: 'NO_OLEVEL_REG',
+    });
+  }
+
+  const refreshed = [];
+  for (const s of wanted) {
+    const r = await regulator.verifyOlevel(s.examType, s.regNo);
+    refreshed.push({
+      examType: s.examType,
+      regNo: s.regNo,
+      candidateName: r.candidateName || r.fullName || null,
+      results: r.results || [],
+    });
+  }
+
+  // Compare on the subject/grade pairs, so a re-check that changes nothing
+  // can say so plainly instead of implying something moved.
+  const key = (list) => JSON.stringify(
+    list.flatMap((s) => (s.results || []).map((r) => [String(r.subject).toLowerCase(), r.grade])).sort()
+  );
+  const changed = key(previous) !== key(refreshed);
+
+  const row = await queryOne(
+    `UPDATE application_sessions
+        SET olevel_sittings = $1::jsonb, olevel_verified = TRUE, last_rechecked_at = NOW()
+      WHERE id = $2 RETURNING *`,
+    [JSON.stringify(refreshed), sessionId]
+  );
+
+  await query(
+    `INSERT INTO olevel_recheck_log
+       (session_id, applicant_id, previous_sittings, new_sittings, changed)
+     VALUES ($1,$2,$3::jsonb,$4::jsonb,$5)`,
+    [sessionId, applicantId, JSON.stringify(previous), JSON.stringify(refreshed), changed]
+  );
+
+  // Keep the profile's copy in step, since eligibility reads it.
+  await query('UPDATE applicant_profiles SET olevel_data = $1::jsonb, olevel_verified = TRUE WHERE user_id = $2',
+    [JSON.stringify(refreshed), applicantId]);
+
+  const subjectCount = refreshed.reduce((n, s) => n + (s.results || []).length, 0);
+  logger.info('O-Level re-checked', { sessionId, changed, sittings: refreshed.length, subjectCount });
+
+  return {
+    changed,
+    checkedAt: row.last_rechecked_at,
+    previous: { sittings: previous.length },
+    current: { sittings: refreshed.length, subjects: subjectCount },
+    session: shape(row),
+  };
+}
+
 async function choices(applicantId, sessionId) {
   const session = await queryOne(
     'SELECT * FROM application_sessions WHERE id = $1 AND applicant_id = $2',
@@ -590,4 +684,5 @@ async function apply(applicantId, sessionId, { institutionId, departmentId, choi
 module.exports = {
   quote, current, start, setSittingType, markPaid, verify, choices, apply, shape, platformFees,
   revalidateJamb,
+  revalidateOlevel,
 };

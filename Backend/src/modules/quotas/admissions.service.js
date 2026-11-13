@@ -848,8 +848,90 @@ async function summary(institutionId, quotaId) {
   };
 }
 
+/**
+ * The admission list for a cycle: everyone admitted, grouped by course and
+ * ranked within it.
+ *
+ * This is what an institution publishes and sends to JAMB after a run, and
+ * what the admission-list report is built from. Before this there was only a
+ * count of how many were admitted, with no way to see or export who they were.
+ */
+async function admissionList(institutionId, quotaId) {
+  const quota = await loadQuota(institutionId, quotaId);
+
+  const { rows } = await query(
+    `SELECT a.id, a.reference, a.jamb_score, a.post_utme_score, a.aggregate_score,
+            a.admission_category, a.decided_at, a.department_id,
+            u.full_name, u.email, p.state_of_origin, p.jamb_reg_no,
+            d.name AS department_name, d.code AS department_code,
+            l.letter_number
+       FROM applications a
+       JOIN users u ON u.id = a.applicant_id
+       LEFT JOIN applicant_profiles p ON p.user_id = a.applicant_id
+       JOIN departments d ON d.id = a.department_id
+       LEFT JOIN admission_letters l ON l.application_id = a.id
+      WHERE a.quota_id = $1 AND a.institution_id = $2 AND a.status = 'admitted'
+      ORDER BY d.name,
+               COALESCE(a.aggregate_score, a.jamb_score) DESC NULLS LAST,
+               a.jamb_score DESC NULLS LAST`,
+    [quotaId, institutionId]
+  );
+
+  // Grouped by course, because that is how an admission list is published.
+  const byDepartment = new Map();
+  for (const r of rows) {
+    if (!byDepartment.has(r.department_id)) {
+      byDepartment.set(r.department_id, {
+        departmentId: r.department_id,
+        departmentName: r.department_name,
+        departmentCode: r.department_code,
+        candidates: [],
+      });
+    }
+    const group = byDepartment.get(r.department_id);
+    group.candidates.push({
+      rank: group.candidates.length + 1,
+      applicationId: r.id,
+      reference: r.reference,
+      applicantName: r.full_name,
+      applicantEmail: r.email,
+      jambRegNo: r.jamb_reg_no,
+      stateOfOrigin: r.state_of_origin,
+      jambScore: r.jamb_score != null ? Number(r.jamb_score) : null,
+      postUtmeScore: r.post_utme_score != null ? Number(r.post_utme_score) : null,
+      aggregateScore: r.aggregate_score != null ? Number(r.aggregate_score) : null,
+      admissionCategory: r.admission_category,
+      letterNumber: r.letter_number || null,
+      admittedAt: r.decided_at,
+    });
+  }
+
+  const departments = [...byDepartment.values()];
+  const seats = await queryOne(
+    'SELECT COALESCE(SUM(allocated),0)::int AS allocated FROM quota_departments WHERE quota_id = $1',
+    [quotaId]
+  );
+
+  const byCategory = rows.reduce((acc, r) => {
+    const k = r.admission_category || 'unclassified';
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    quota: {
+      id: quota.id, name: quota.name, status: quota.status,
+      sessionLabel: quota.session_label, admissionRule: quota.admission_rule,
+    },
+    totalAdmitted: rows.length,
+    allocatedSeats: seats?.allocated || 0,
+    byCategory,
+    departments,
+  };
+}
+
 module.exports = {
-  listApplicants, process, decide, switchDepartment, close, summary,
+  listApplicants, process, decide, switchDepartment, close, summary, admissionList,
   rankingScore, seatsByCategory,
   listChangeOffers, listOffersForApplicant, respondToChangeOffer,
   setPostUtmeScore, backfillPostUtmeFromMock,

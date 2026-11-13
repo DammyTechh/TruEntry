@@ -182,3 +182,58 @@
  *     summary: Mark all notifications read
  *     responses: { 200: { description: All marked read } }
  */
+
+/**
+ * @openapi
+ * /sessions/{id}/revalidate-olevel:
+ *   post:
+ *     tags: [Sessions]
+ *     summary: Re-check O'Level after verification
+ *     description: >
+ *       The counterpart to the JAMB re-check. Verification snapshots the
+ *       candidate's O'Level results, so a result corrected, released or
+ *       upgraded afterwards never reached the application — and neither did
+ *       the admission it should have earned. This re-reads the sittings and
+ *       replaces the snapshot, on the session and on the profile that
+ *       eligibility is judged from.
+ *
+ *       Free, since the applicant already paid to have these verified, and
+ *       the JAMB side is untouched. Supplying registration numbers is
+ *       optional; without them the ones already on the session are re-read.
+ *       Every re-check is written to `olevel_recheck_log` for audit.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               olevel:
+ *                 type: array
+ *                 maxItems: 2
+ *                 description: Optional replacement sittings, capped at what the session paid for.
+ *                 items:
+ *                   type: object
+ *                   required: [examType, regNo]
+ *                   properties:
+ *                     examType: { type: string, example: waec }
+ *                     regNo:    { type: string, example: "4100839012" }
+ *     responses:
+ *       200: { description: Re-checked. `changed` says whether the result moved. }
+ *       400: { description: The session has not been verified yet }
+ *
+ * /quotas/{id}/admissions/list:
+ *   get:
+ *     tags: [Admissions]
+ *     summary: The admission list for a cycle
+ *     description: >
+ *       Everyone admitted in the cycle, grouped by course and ranked within
+ *       it — the list an institution publishes and sends to JAMB after a run.
+ *       Each row carries the candidate's JAMB registration number, scores,
+ *       admission category and letter number.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+ *     responses:
+ *       200: { description: Admission list, with totals and a breakdown by category }
+ */

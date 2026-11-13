@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Play, CheckCircle2, XCircle, Lock, Users, Search,
-  AlertTriangle, ShieldCheck, Shuffle, X,
+  AlertTriangle, ShieldCheck, Shuffle, X, ListChecks, Download,
 } from 'lucide-react';
 import { usePaged } from '../../lib/hooks';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -271,6 +271,8 @@ export function AdmissionDetail() {
         <StatCard label="Pending" value={(summary?.pending ?? 0).toLocaleString()} icon={AlertTriangle} tone="warning" accent="text-warning" />
       </div>
 
+      <AdmissionListPanel quotaId={id} />
+
       <ChangeOffersPanel offers={changeOffers} />
 
       {/* Filters */}
@@ -468,6 +470,152 @@ function PostUtmeCell({ row, quotaId, onSaved }) {
         <X className="h-4 w-4" />
       </button>
     </div>
+  );
+}
+
+/**
+ * Everyone admitted in this cycle, grouped by course and ranked within it —
+ * the list an institution publishes and sends to JAMB after a run.
+ *
+ * Until now a run reported only how many were admitted, with no way to see
+ * or export who they were.
+ */
+function AdmissionListPanel({ quotaId }) {
+  const toast = useToast();
+  const [data, setData] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await api.get(`/quotas/${quotaId}/admissions/list`);
+      setData(res.data.data);
+      setOpen(true);
+    } catch (err) {
+      toast.error(errMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function download(type, label) {
+    setDownloading(true);
+    try {
+      const res = await api.post('/reports/generate', { type }, { responseType: 'blob' });
+      const blob = res.data;
+      if (blob.type && blob.type.includes('application/json')) {
+        const parsed = JSON.parse(await blob.text());
+        const url = parsed?.data?.pdfUrl || parsed?.data?.url;
+        if (url) window.open(url, '_blank', 'noopener');
+        else throw new Error('No report was returned.');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${type}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+      toast.success(`${label} downloaded`);
+    } catch (err) {
+      // Errors arrive as a blob on this request, so read the body first.
+      let message = errMessage(err);
+      const d = err?.response?.data;
+      if (d instanceof Blob) {
+        try { message = JSON.parse(await d.text())?.message || message; } catch { /* keep */ }
+      }
+      toast.error(message);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <Card className="mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
+            <ListChecks className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-ink">Admission list</h3>
+            <p className="text-sm text-muted">
+              Everyone admitted in this cycle, by course and in rank order — ready to publish or send to JAMB.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={load} loading={loading}>
+            {open ? 'Refresh' : 'View list'}
+          </Button>
+          <Button onClick={() => download('admitted_list', 'Admission list')} loading={downloading}>
+            <Download className="h-4 w-4" /> Download
+          </Button>
+        </div>
+      </div>
+
+      {open && data && (
+        <div className="mt-5">
+          <div className="flex flex-wrap gap-5 border-b border-border pb-3 text-sm">
+            <span><strong className="text-ink">{data.totalAdmitted}</strong> <span className="text-muted">admitted</span></span>
+            <span><strong className="text-ink">{data.allocatedSeats}</strong> <span className="text-muted">seats</span></span>
+            {Object.entries(data.byCategory || {}).map(([k, v]) => (
+              <span key={k} className="text-muted">
+                {k.replace(/_/g, ' ')}: <strong className="text-ink">{v}</strong>
+              </span>
+            ))}
+          </div>
+
+          {data.departments.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted">
+              Nobody has been admitted in this cycle yet. Process the cycle and commit the run first.
+            </p>
+          ) : data.departments.map((d) => (
+            <div key={d.departmentId} className="mt-5">
+              <h4 className="font-semibold text-ink">
+                {d.departmentName}{' '}
+                <span className="font-normal text-muted">· {d.candidates.length} admitted</span>
+              </h4>
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-muted">
+                    <tr>
+                      <th className="py-2 pr-3">#</th>
+                      <th className="py-2 pr-3">Candidate</th>
+                      <th className="py-2 pr-3">JAMB no.</th>
+                      <th className="py-2 pr-3">JAMB</th>
+                      <th className="py-2 pr-3">Aggregate</th>
+                      <th className="py-2 pr-3">Category</th>
+                      <th className="py-2 pr-3">State</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {d.candidates.map((c) => (
+                      <tr key={c.applicationId}>
+                        <td className="py-2 pr-3 text-muted">{c.rank}</td>
+                        <td className="py-2 pr-3">
+                          <div className="font-medium text-ink">{c.applicantName}</div>
+                          <div className="text-xs text-muted">{c.reference}</div>
+                        </td>
+                        <td className="py-2 pr-3 font-mono text-xs text-muted">{c.jambRegNo || '—'}</td>
+                        <td className="py-2 pr-3 text-ink">{c.jambScore ?? '—'}</td>
+                        <td className="py-2 pr-3 text-ink">{c.aggregateScore ?? '—'}</td>
+                        <td className="py-2 pr-3 text-muted">{(c.admissionCategory || '—').replace(/_/g, ' ')}</td>
+                        <td className="py-2 pr-3 text-muted">{c.stateOfOrigin || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

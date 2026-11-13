@@ -8,7 +8,7 @@ const storageService = require('../../services/storage.service');
 const emailService = require('../../services/email.service');
 const config = require('../../config');
 const logger = require('../../config/logger');
-const { APPLICATION_STATUS, ROLES } = require('../../utils/constants');
+const { APPLICATION_STATUS, ROLES, INSTITUTION_ROLES } = require('../../utils/constants');
 
 async function loadAdmissionContext(applicationId) {
   return queryOne(
@@ -36,7 +36,10 @@ async function generate(applicationId, actor) {
   if (actor.role === ROLES.APPLICANT && app.applicant_id !== actor.id) {
     throw ApiError.forbidden('Not your application');
   }
-  if ([ROLES.OFFICER, ROLES.REGISTRAR].includes(actor.role) &&
+  // INSTITUTION_ROLES: without the 'institution' role here, an institution
+  // account skipped this ownership check entirely and could fetch a letter
+  // belonging to another school.
+  if (INSTITUTION_ROLES.includes(actor.role) &&
       String(app.institution_id) !== String(actor.institutionId)) {
     throw ApiError.forbidden('This application belongs to another institution');
   }

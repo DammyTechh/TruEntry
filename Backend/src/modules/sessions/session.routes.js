@@ -8,7 +8,7 @@ const { authenticate } = require('../../middleware/auth.middleware');
 const { authorize } = require('../../middleware/rbac.middleware');
 const { success, created } = require('../../utils/ApiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
-const { ROLES } = require('../../utils/constants');
+const { ROLES, OLEVEL_EXAM_TYPES } = require('../../utils/constants');
 
 const router = express.Router();
 router.use(authenticate, authorize(ROLES.APPLICANT));
@@ -81,6 +81,31 @@ router.post('/:id/revalidate-jamb', asyncHandler(async (req, res) => {
     data,
   });
 }));
+
+/**
+ * Re-check O'Level after verification — the counterpart to the JAMB re-check.
+ *
+ * Verification snapshots the results, so a candidate whose result was later
+ * corrected, released or upgraded was stuck with the old one. Sending new
+ * registration numbers is optional; without them the ones already on the
+ * session are read again. Free, and it leaves the JAMB side alone.
+ */
+router.post('/:id/revalidate-olevel',
+  validate({ body: z.object({
+    olevel: z.array(z.object({
+      examType: z.enum(OLEVEL_EXAM_TYPES),
+      regNo: z.string().trim().min(6).max(30),
+    })).max(2).optional(),
+  }) }),
+  asyncHandler(async (req, res) => {
+    const data = await service.revalidateOlevel(req.user.id, req.params.id, req.body);
+    return success(res, {
+      message: data.changed
+        ? 'Your O-Level result has changed — your application has been updated'
+        : 'Your O-Level result is unchanged',
+      data,
+    });
+  }));
 
 router.post('/:id/verify', validate({ body: verifySchema }), asyncHandler(async (req, res) => {
   const data = await service.verify(req.user.id, req.params.id, req.body);
