@@ -11,8 +11,14 @@
  */
 const { pool, queryOne } = require('../src/config/database');
 const { hashPassword } = require('../src/utils/security');
+const { ensureSchema } = require('../src/config/migrations');
 
 async function main() {
+  // On a brand-new database the tables may not exist yet, because the API
+  // migrates itself on its first request. Seeding must not depend on that
+  // having happened already.
+  await ensureSchema();
+
   const email = process.env.SEED_ADMIN_EMAIL || 'admin@truentry.org';
   const password = process.env.SEED_ADMIN_PASSWORD || 'TruEntry@2026';
   const name = process.env.SEED_ADMIN_NAME || 'System Administrator';

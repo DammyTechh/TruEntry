@@ -228,7 +228,12 @@ async function resetUserPassword(id) {
   const user = await queryOne('SELECT * FROM users WHERE id = $1', [id]);
   if (!user) throw ApiError.notFound('User not found');
   const tempPassword = `${randomToken(4)}Aa1!`;
-  await query('UPDATE users SET password_hash = $1 WHERE id = $2', [await hashPassword(tempPassword), id]);
+  // A password handed out by an administrator is temporary by definition, so the
+  // next sign-in must replace it.
+  await query(
+    'UPDATE users SET password_hash = $1, must_change_password = TRUE WHERE id = $2',
+    [await hashPassword(tempPassword), id]
+  );
   // Revoke sessions.
   await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL', [id]);
   try {

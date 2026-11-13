@@ -8,7 +8,7 @@ import { Modal } from '../../components/ui/Misc';
 import { useToast } from '../../components/ui/Toast';
 import api, { errMessage } from '../../lib/api';
 
-const ROLE_FILTERS = ['', 'applicant', 'officer', 'registrar', 'jamb', 'admin'];
+const ROLE_FILTERS = ['', 'applicant', 'institution', 'officer', 'registrar', 'jamb', 'admin'];
 const emptyStaff = { fullName: '', email: '', phone: '', role: 'officer', institutionId: '' };
 
 export default function Users() {
@@ -20,6 +20,7 @@ export default function Users() {
   const [form, setForm] = useState(emptyStaff);
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState(null);
+  const [resetting, setResetting] = useState(null);
 
   useEffect(() => {
     api.get('/institutions', { params: { limit: 100 } }).then((r) => setInstitutions(r.data.data || [])).catch(() => {});
@@ -53,12 +54,30 @@ export default function Users() {
   }
 
   async function toggleActive(u) {
+    // Deactivating locks the person out, so it is confirmed. Reactivating is
+    // harmless and goes straight through.
+    if (u.isActive && !window.confirm(`Deactivate ${u.email}? They will not be able to sign in until you activate them again.`)) return;
     try {
       await api.patch(`/admin/users/${u.id}/active`, { isActive: !u.isActive });
       toast.success(u.isActive ? 'User deactivated' : 'User activated');
       refetch();
     } catch (err) {
       toast.error(errMessage(err));
+    }
+  }
+
+  // Issues a fresh temporary password and shows it once, so an administrator
+  // can hand it over directly when the email never arrives.
+  async function resetPassword(u) {
+    if (!window.confirm(`Issue a new temporary password for ${u.email}? Their current password stops working.`)) return;
+    setResetting(u.id);
+    try {
+      const { data } = await api.post(`/admin/users/${u.id}/reset-password`);
+      setCreated({ user: { email: u.email }, temporaryPassword: data.data?.temporaryPassword, reset: true });
+    } catch (err) {
+      toast.error(errMessage(err));
+    } finally {
+      setResetting(null);
     }
   }
 
@@ -71,7 +90,17 @@ export default function Users() {
       <Badge className={r.isActive ? 'bg-green-50 text-success' : 'bg-red-50 text-danger'}>{r.isActive ? 'Active' : 'Inactive'}</Badge>
     ) },
     { key: 'actions', header: '', render: (r) => (
-      <button onClick={() => toggleActive(r)} className="text-sm link">{r.isActive ? 'Deactivate' : 'Activate'}</button>
+      <div className="flex items-center justify-end gap-3 whitespace-nowrap">
+        <button
+          onClick={() => resetPassword(r)}
+          disabled={resetting === r.id}
+          className="text-sm link disabled:opacity-50"
+          title="Issue a new temporary password and show it once"
+        >
+          {resetting === r.id ? 'Resetting…' : 'Reset password'}
+        </button>
+        <button onClick={() => toggleActive(r)} className="text-sm link">{r.isActive ? 'Deactivate' : 'Activate'}</button>
+      </div>
     ) },
   ];
 
@@ -137,10 +166,13 @@ export default function Users() {
       <Modal
         open={!!created}
         onClose={() => setCreated(null)}
-        title="Staff account created"
+        title={created?.reset ? 'Temporary password issued' : 'Staff account created'}
         footer={<Button onClick={() => setCreated(null)}>Done</Button>}
       >
-        <p className="text-sm text-muted">Share these credentials securely. The temporary password is shown only once.</p>
+        <p className="text-sm text-muted">
+          Share these credentials securely. The temporary password is shown only once
+          {created?.reset ? ' — it has also been emailed, if email is configured.' : '.'}
+        </p>
         <div className="mt-3 rounded-xl bg-primary-surface p-4 text-sm">
           <div><span className="text-muted">Email:</span> <b className="text-ink">{created?.user?.email}</b></div>
           <div className="mt-1"><span className="text-muted">Temporary password:</span> <b className="text-ink">{created?.temporaryPassword}</b></div>

@@ -166,6 +166,15 @@ export default function QuotaBuilder() {
   async function save() {
     if (!form.name.trim()) return toast.error('Give this quota a name');
     if (allocationTotal !== 100) return toast.error(`Admission categories must total 100% (currently ${allocationTotal}%)`);
+    if (!selectedDeptIds.length) return toast.error('Select at least one department for this quota');
+    // A cycle with no seats anywhere admits nobody, and the failure only shows
+    // up much later when processing returns an empty list. Catch it here.
+    if (selectedDeptIds.reduce((s, idv) => s + allocationFor(idv), 0) < 1)
+      return toast.error(
+        form.distributionMode === 'auto'
+          ? 'No seats to share out — set the total applicants/seats above first'
+          : 'Give at least one department some seats'
+      );
 
     setSaving(true);
     try {
