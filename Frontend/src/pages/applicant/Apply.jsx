@@ -254,6 +254,31 @@ function VerifyStep({ session, onVerified }) {
   );
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState(session?.verification?.error || null);
+  const [prefilled, setPrefilled] = useState(false);
+
+  // Pre-fill from what the applicant already entered during onboarding.
+  // These fields used to start empty, so a student had to retype a long JAMB
+  // number and their O'Level numbers from memory; one wrong character came
+  // back as "record not found". They stay editable, because a number may
+  // genuinely need correcting.
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/profile').then(({ data }) => {
+      if (cancelled) return;
+      const profile = data?.data?.profile || {};
+      if (profile.jambRegNo) setJambRegNo(profile.jambRegNo);
+
+      const saved = Array.isArray(profile.olevelSittings) ? profile.olevelSittings : [];
+      if (saved.length) {
+        setRows(Array.from({ length: expected }, (_, i) => ({
+          examType: saved[i]?.examType || 'waec',
+          regNo: saved[i]?.regNo || '',
+        })));
+      }
+      setPrefilled(!!profile.jambRegNo || saved.length > 0);
+    }).catch(() => { /* leave the fields blank and let them type */ });
+    return () => { cancelled = true; };
+  }, [expected]);
 
   function setRow(i, key, value) {
     setRows((r) => r.map((x, idx) => (idx === i ? { ...x, [key]: value } : x)));
@@ -290,8 +315,10 @@ function VerifyStep({ session, onVerified }) {
 
       <h2 className="mt-4 font-display text-lg font-bold text-primary">Verify your credentials</h2>
       <p className="mt-1 text-sm text-muted">
-        Enter the registration numbers exactly as they appear on your JAMB and O'Level records. We check them
-        against the source records — your JAMB choices will then load automatically.
+        {prefilled
+          ? 'These are the numbers you entered earlier. Check them against your JAMB and O’Level records — correct anything that is wrong — then continue.'
+          : 'Enter the registration numbers exactly as they appear on your JAMB and O’Level records.'}{' '}
+        We check them against the source records — your JAMB choices will then load automatically.
       </p>
 
       {failure && (
