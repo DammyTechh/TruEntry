@@ -127,6 +127,20 @@ export default function Institutions() {
     },
     { key: 'hasPostUtme', header: 'Post-UTME', render: (r) => (r.hasPostUtme ? 'Yes' : 'No') },
     {
+      // Students can only apply where a cycle is open, so this is the column
+      // that explains "not currently accepting applications" on their side.
+      key: 'applications',
+      header: 'Applications',
+      render: (r) => {
+        const a = r.applications;
+        if (!a) return '—';
+        if (a.open) return <Badge className="bg-green-50 text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Open</Badge>;
+        if (!a.courses) return <Badge className="bg-red-50 text-danger" title="No courses added yet">No courses</Badge>;
+        if (!a.cycles) return <Badge className="bg-amber-50 text-warning" title="No admission cycle has been created">No cycle</Badge>;
+        return <Badge className="bg-amber-50 text-warning" title="A cycle exists but has not been opened">Not open</Badge>;
+      },
+    },
+    {
       key: 'account',
       header: 'Account',
       render: (r) =>

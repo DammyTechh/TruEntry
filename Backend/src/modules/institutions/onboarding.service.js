@@ -234,7 +234,13 @@ async function listOnboarded({ page = 1, limit = 20, search, type }) {
   const { rows } = await query(
     `SELECT i.*, c.name AS category_name, c.type AS institution_type,
             u.id AS account_id, u.email AS account_email,
-            u.must_change_password, u.last_login_at, u.is_active AS account_active
+            u.must_change_password, u.last_login_at, u.is_active AS account_active,
+            (SELECT COUNT(*) FROM departments d
+              WHERE d.institution_id = i.id)::int AS department_count,
+            (SELECT COUNT(*) FROM admission_quotas q
+              WHERE q.institution_id = i.id)::int AS cycle_count,
+            (SELECT COUNT(*) FROM admission_quotas q
+              WHERE q.institution_id = i.id AND q.status = 'open')::int AS open_cycle_count
        FROM institutions i
        LEFT JOIN institution_categories c ON c.id = i.category_id
        LEFT JOIN users u ON u.institution_id = i.id AND u.role = '${ROLES.INSTITUTION}'
@@ -255,6 +261,13 @@ async function listOnboarded({ page = 1, limit = 20, search, type }) {
   return {
     items: rows.map((r) => ({
       ...shapeInstitution(r),
+      // Whether students can actually apply here. Without this, an institution
+      // that never opened a cycle looks identical to one that is live.
+      applications: {
+        open: Number(r.open_cycle_count) > 0,
+        cycles: Number(r.cycle_count),
+        courses: Number(r.department_count),
+      },
       account: r.account_id
         ? {
             id: r.account_id,

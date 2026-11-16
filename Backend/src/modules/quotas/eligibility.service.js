@@ -328,16 +328,34 @@ async function loadDepartment(institutionId, departmentId) {
 /** Load a quota plus everything eligibility needs, then evaluate. */
 async function checkApplicant({ institutionId, departmentId, applicant }) {
   const quota = await queryOne(
-    "SELECT * FROM admission_quotas WHERE institution_id = $1 AND status = 'open' LIMIT 1",
+    `SELECT * FROM admission_quotas
+      WHERE institution_id = $1 AND status = 'open'
+      ORDER BY created_at DESC LIMIT 1`,
     [institutionId]
   );
   if (!quota) {
-    return {
-      eligible: false,
-      reasons: ['This institution is not currently accepting applications.'],
-      details: {},
-      quota: null,
-    };
+    // "Not accepting applications" on its own tells nobody what to do about
+    // it. Say which institution, and which of the three situations it is in,
+    // so the applicant knows whether to wait and the institution knows what
+    // it still has to press.
+    const state = await queryOne(
+      `SELECT i.name,
+              COUNT(q.*) FILTER (WHERE q.status = 'draft')::int  AS drafts,
+              COUNT(q.*) FILTER (WHERE q.status = 'closed')::int AS closed,
+              COUNT(q.*) FILTER (WHERE q.status IN ('processing','finished'))::int AS done
+         FROM institutions i
+         LEFT JOIN admission_quotas q ON q.institution_id = i.id
+        WHERE i.id = $1
+        GROUP BY i.name`,
+      [institutionId]
+    );
+    const name = state?.name || 'This institution';
+    let reason;
+    if (state?.drafts) reason = `${name} has set up an admission cycle but has not opened it yet.`;
+    else if (state?.done) reason = `${name} has finished taking applications for this cycle.`;
+    else if (state?.closed) reason = `Applications to ${name} have closed.`;
+    else reason = `${name} has not opened applications on TruEntry yet.`;
+    return { eligible: false, reasons: [reason], details: {}, quota: null };
   }
 
   const { rows: requirements } = await query(

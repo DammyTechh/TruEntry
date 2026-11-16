@@ -167,6 +167,19 @@ export function AdmissionDetail() {
 
   if (loading) return <PageLoader />;
   const finished = summary?.quota?.status === 'finished';
+  // A cycle that was built but never opened is invisible to students, which
+  // looks exactly like a broken platform from both sides.
+  const isDraft = summary?.quota?.status === 'draft';
+
+  async function openCycle() {
+    try {
+      await api.patch(`/quotas/${id}/status`, { status: 'open' });
+      toast.success('Cycle opened — students can now apply');
+      loadSummary();
+    } catch (err) {
+      toast.error(errMessage(err));
+    }
+  }
 
   const columns = [
     {
@@ -252,17 +265,38 @@ export function AdmissionDetail() {
             </Badge>
             {!finished && (
               <>
+                {isDraft && (
+                  <Button onClick={openCycle}>
+                    <Play className="h-4 w-4" /> Open cycle
+                  </Button>
+                )}
                 <Button variant="secondary" onClick={runPreview} loading={busy}>
                   <Play className="h-4 w-4" /> Preview admissions
                 </Button>
-                <Button variant="danger" onClick={closeCycle}>
-                  <Lock className="h-4 w-4" /> Close admission
-                </Button>
+                {!isDraft && (
+                  <Button variant="danger" onClick={closeCycle}>
+                    <Lock className="h-4 w-4" /> Close admission
+                  </Button>
+                )}
               </>
             )}
           </div>
         }
       />
+
+      {isDraft && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+          <div className="text-sm">
+            <p className="font-medium text-ink">This cycle is still a draft, so no one can apply to it.</p>
+            <p className="mt-1 text-muted">
+              Students are told this institution is not accepting applications until the cycle is
+              opened. Press <strong className="text-ink">Open cycle</strong> above when the settings
+              are right.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Applicants" value={(summary?.total ?? 0).toLocaleString()} icon={Users} />
