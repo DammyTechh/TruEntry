@@ -242,7 +242,13 @@ function JambTable({ rows, onEdit, onDelete }) {
                         <li key={c.position} className="text-xs">
                           <Badge className="mr-1.5 bg-primary-light text-primary">{ORDINAL[c.position] || c.position}</Badge>
                           <span className="text-ink">{c.institution}</span>
-                          <span className="text-muted"> · {c.course || 'no course'}</span>
+                          {c.course ? (
+                            <span className="text-muted"> · {c.course}</span>
+                          ) : (
+                            // Applying needs a course, so this choice is a dead
+                            // end until one is set. Say so where it is fixed.
+                            <span className="text-warning"> · no course — edit this record to add one, or the applicant cannot apply</span>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -377,6 +383,11 @@ function buildBody(kind, f) {
     if (!choices.length) problems.choices = 'Pick at least one institution the candidate chose.';
     const positions = choices.map((c) => Number(c.position));
     if (new Set(positions).size !== positions.length) problems.choices = 'Each choice position can only be used once.';
+    // Applying looks the course up, so an institution without one gives the
+    // candidate a choice they can never act on.
+    if (choices.some((c) => !c.departmentId)) {
+      problems.choices = 'Pick a course for every institution — a choice without one cannot be applied for.';
+    }
 
     return {
       problems,
@@ -391,7 +402,7 @@ function buildBody(kind, f) {
         choices: choices.map((c) => ({
           position: Number(c.position),
           institutionId: c.institutionId,
-          departmentId: c.departmentId || undefined,
+          departmentId: c.departmentId,
         })),
       },
     };

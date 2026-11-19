@@ -58,7 +58,12 @@ const mockJambSchema = z.object({
       z.object({
         position: z.coerce.number().int().min(1).max(4),
         institutionId: z.string().uuid(),
-        departmentId: z.string().uuid().optional(),
+        // A choice without a course cannot be applied for: the apply step
+        // looks the course up and refuses without one. Requiring it here
+        // stops a demo candidate being created that can never apply.
+        departmentId: z
+          .string({ required_error: 'Pick a course for each institution choice' })
+          .uuid({ message: 'Pick a course for each institution choice' }),
       })
     )
     .max(4)

@@ -522,7 +522,9 @@ async function choices(applicantId, sessionId) {
 
     const entry = {
       choicePosition: choice.position || choice.choice || index + 1,
-      institutionName: choice.institution || choice.institutionName || null,
+      // Fall back to the matched institution, so a choice stored as an id
+      // alone is never shown to the applicant as a nameless card.
+      institutionName: choice.institution || choice.institutionName || institution?.name || null,
       courseName: choice.course || choice.courseName || null,
       onPlatform: !!institution,
       institutionId: institution?.id || null,
@@ -544,6 +546,20 @@ async function choices(applicantId, sessionId) {
       );
       entry.departmentId = department?.id || null;
       entry.departmentName = department?.name || null;
+
+      // Without a course there is nothing to apply for — the apply step looks
+      // the course up and refuses. Say so here rather than offering a button
+      // that fails with "Department not found for that institution".
+      if (!department) {
+        entry.eligible = false;
+        entry.reasons = [
+          entry.courseName
+            ? `${institution.name} does not offer ${entry.courseName} on TruEntry, or it is not open this cycle.`
+            : 'No course is attached to this JAMB choice, so there is nothing to apply for. Re-check JAMB if you have since chosen a course.',
+        ];
+        out.push(entry);
+        continue;
+      }
 
       const check = await eligibility.checkApplicant({
         institutionId: institution.id,

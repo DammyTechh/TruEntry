@@ -631,6 +631,24 @@ function ChoicesStep({ session, onApplied }) {
         </Card>
       )}
 
+      {/* The step above says "Select course", so when none of them can be
+          selected, say why once at the top instead of leaving the applicant to
+          piece it together from the cards. */}
+      {remaining.length > 0 && remaining.every((c) => c.eligible === false) && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+          <div className="text-sm">
+            <p className="font-medium text-ink">None of your JAMB choices can be applied to yet.</p>
+            <p className="mt-1 text-muted">
+              The reason for each one is shown below. If you have since changed your course or
+              institution at JAMB, use <strong className="text-ink">Re-check JAMB</strong> above to
+              pull the new choices through. Otherwise your payment stands — come back once the
+              institution opens its applications.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         {remaining.map((c) => {
           const key = c.institutionId + c.choicePosition;
