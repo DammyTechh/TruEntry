@@ -384,7 +384,7 @@ function VerifyStep({ session, onVerified }) {
  * application had been submitted, so a student who had applied — or been
  * admitted — saw nothing about it and was still invited to "Apply".
  */
-function SubmittedPanel({ applications, onChanged }) {
+function SubmittedPanel({ applications, onChanged, admitted = false, remaining = 0 }) {
   const toast = useToast();
   const [downloading, setDownloading] = useState(null);
 
@@ -429,7 +429,11 @@ function SubmittedPanel({ applications, onChanged }) {
     <Card className="mb-5">
       <h3 className="font-semibold text-ink">Your applications</h3>
       <p className="mt-1 text-sm text-muted">
-        You have already applied. You can still apply to another of your JAMB choices below.
+        {admitted
+          ? 'You have been offered admission, so there is nothing further to apply for.'
+          : remaining > 0
+            ? 'You have already applied. You can still apply to another of your JAMB choices below.'
+            : 'You have applied to every one of your JAMB choices. Their progress is shown here.'}
       </p>
 
       <div className="mt-4 space-y-3">
@@ -565,12 +569,31 @@ function ChoicesStep({ session, onApplied }) {
   }
 
   const applied = new Set(applications.map((a) => `${a.institutionId}:${a.departmentId}`));
+  const admitted = applications.some((a) => a.status === 'admitted');
+
+  // A choice the student has already applied to is shown above, under "Your
+  // applications", with its real status. Repeating it down here as a greyed-out
+  // "Not eligible / Apply" card said nothing useful and read like a fault.
+  // Being admitted ends the round, so nothing is left to apply for at all.
+  const remaining = admitted
+    ? []
+    : (choices || []).filter((c) => !applied.has(`${c.institutionId}:${c.departmentId}`));
 
   return (
     <div>
-      {applications.length > 0 && <SubmittedPanel applications={applications} onChanged={load} />}
+      {applications.length > 0 && (
+        <SubmittedPanel
+          applications={applications}
+          onChanged={load}
+          admitted={admitted}
+          remaining={remaining.length}
+        />
+      )}
 
-      <div className="mb-5 flex flex-col gap-3 rounded-xl border border-border bg-white p-4 sm:flex-row sm:items-start">
+      {/* Re-checking only exists so a candidate can apply for a changed JAMB
+          choice. Once admission is offered there is nothing left to apply for,
+          so the whole panel goes. */}
+      <div className={`mb-5 flex-col gap-3 rounded-xl border border-border bg-white p-4 sm:flex-row sm:items-start ${admitted ? 'hidden' : 'flex'}`}>
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
         <div className="min-w-0 flex-1 text-sm">
           <p className="font-semibold text-ink">Credentials verified</p>
@@ -609,7 +632,7 @@ function ChoicesStep({ session, onApplied }) {
       )}
 
       <div className="space-y-4">
-        {(choices || []).map((c) => {
+        {remaining.map((c) => {
           const key = c.institutionId + c.choicePosition;
           const alreadyApplied = applied.has(`${c.institutionId}:${c.departmentId}`);
           return (

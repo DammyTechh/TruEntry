@@ -537,7 +537,11 @@ function JambForm({ form, setForm, errors, lockRegNo }) {
                   </Select>
                   <Select label="Institution" value={c.institutionId} onChange={(e) => setChoice(index, 'institutionId', e.target.value)}>
                     <option value="">Select institution…</option>
-                    {institutions.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                    {/* The code disambiguates institutions with similar names,
+                        so a choice cannot be bound to the wrong one. */}
+                    {institutions.map((i) => (
+                      <option key={i.id} value={i.id}>{i.code ? `${i.name} (${i.code})` : i.name}</option>
+                    ))}
                   </Select>
                   <Select
                     label="Course (department)"
